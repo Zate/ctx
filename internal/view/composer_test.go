@@ -1,6 +1,7 @@
 package view_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -218,6 +219,175 @@ func TestRenderMarkdown_HidesReferenceWhenZero(t *testing.T) {
 
 	output := view.RenderMarkdown(result)
 	assert.NotContains(t, output, "Reference available")
+}
+
+func TestRenderMarkdown_GroupsByTier(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	createNode(t, d, "fact", "pinned fact", []string{"tier:pinned"})
+	createNode(t, d, "decision", "working decision", []string{"tier:working"})
+
+	result, err := view.Compose(d, view.ComposeOptions{
+		Query:  "tag:tier:pinned OR tag:tier:working",
+		Budget: 50000,
+	})
+	require.NoError(t, err)
+
+	output := view.RenderMarkdown(result)
+	assert.Contains(t, output, "## Pinned")
+	assert.Contains(t, output, "## Working Context")
+	assert.Contains(t, output, "pinned fact")
+	assert.Contains(t, output, "working decision")
+	assert.Contains(t, output, "<!-- ctx:end -->")
+}
+
+func TestRenderMarkdown_LastSessionStores(t *testing.T) {
+	result := &view.ComposeResult{
+		NodeCount:         2,
+		TotalTokens:       100,
+		LastSessionStores: 5,
+	}
+	output := view.RenderMarkdown(result)
+	assert.Contains(t, output, "last session: 5 nodes stored")
+
+	result.LastSessionStores = 0
+	output = view.RenderMarkdown(result)
+	assert.Contains(t, output, "last session: no new knowledge stored")
+
+	result.LastSessionStores = -1
+	output = view.RenderMarkdown(result)
+	assert.NotContains(t, output, "last session")
+}
+
+func TestRenderMarkdown_CustomPrimer(t *testing.T) {
+	result := &view.ComposeResult{
+		NodeCount:   1,
+		TotalTokens: 50,
+		Primer:      "Custom instructions here.",
+	}
+	output := view.RenderMarkdown(result)
+	assert.Contains(t, output, "Custom instructions here.")
+	assert.NotContains(t, output, "You have persistent memory via")
+}
+
+func TestRenderText(t *testing.T) {
+	result := &view.ComposeResult{
+		NodeCount:   2,
+		TotalTokens: 150,
+		Nodes: []*db.Node{
+			{ID: "ABC123", Type: "fact", Content: "first node", Tags: []string{"tier:pinned"}},
+			{ID: "DEF456", Type: "decision", Content: "second node", Tags: []string{"tier:working"}},
+		},
+	}
+	output := view.RenderText(result)
+	assert.Contains(t, output, "Context: 2 nodes, 150 tokens")
+	assert.Contains(t, output, "[ABC123] fact: first node [tier:pinned]")
+	assert.Contains(t, output, "[DEF456] decision: second node [tier:working]")
+}
+
+func TestRenderText_TruncatesLongContent(t *testing.T) {
+	long := make([]byte, 200)
+	for i := range long {
+		long[i] = 'x'
+	}
+	result := &view.ComposeResult{
+		NodeCount:   1,
+		TotalTokens: 50,
+		Nodes: []*db.Node{
+			{ID: "ABC123", Type: "fact", Content: string(long)},
+		},
+	}
+	output := view.RenderText(result)
+	assert.Contains(t, output, "...")
+}
+
+func TestCompose_BudgetEnforced(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	// Each node is ~25 tokens (100 chars / 4)
+	for i := 0; i < 5; i++ {
+		content := fmt.Sprintf("node %d with some padding content to reach token count %s", i, make([]byte, 80))
+		createNode(t, d, "fact", content, []string{"tier:pinned"})
+	}
+
+	result, err := view.Compose(d, view.ComposeOptions{
+		Query:  "tag:tier:pinned",
+		Budget: 50, // very small budget
+	})
+	require.NoError(t, err)
+	assert.Less(t, result.TotalTokens, 51)
+	assert.Less(t, result.NodeCount, 5)
+}
+
+func TestCompose_ZeroBudget_ReturnsEmpty(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	createNode(t, d, "fact", "some content", []string{"tier:pinned"})
+
+	result, err := view.Compose(d, view.ComposeOptions{
+		Query:  "tag:tier:pinned",
+		Budget: 0,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.NodeCount)
+	assert.Nil(t, result.Nodes)
+}
+
+func TestCompose_SeedTraversal(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	n1 := createNode(t, d, "fact", "seed node", []string{"tier:pinned"})
+	n2 := createNode(t, d, "fact", "linked node", []string{"tier:pinned"})
+	createNode(t, d, "fact", "unlinked node", []string{"tier:pinned"})
+
+	_, err := d.CreateEdge(n1.ID, n2.ID, "RELATES_TO")
+	require.NoError(t, err)
+
+	result, err := view.Compose(d, view.ComposeOptions{
+		SeedID: n1.ID,
+		Budget: 50000,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, 2, result.NodeCount)
+	contents := nodeContents(result.Nodes)
+	assert.Contains(t, contents, "seed node")
+	assert.Contains(t, contents, "linked node")
+	assert.NotContains(t, contents, "unlinked node")
+}
+
+func TestCompose_SortsPinnedBeforeWorking(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	// Create working first, then pinned — pinned should sort first regardless
+	createNode(t, d, "fact", "working fact", []string{"tier:working"})
+	createNode(t, d, "fact", "pinned fact", []string{"tier:pinned"})
+
+	result, err := view.Compose(d, view.ComposeOptions{
+		Query:  "tag:tier:pinned OR tag:tier:working",
+		Budget: 50000,
+	})
+	require.NoError(t, err)
+	require.Len(t, result.Nodes, 2)
+	assert.Equal(t, "pinned fact", result.Nodes[0].Content)
+	assert.Equal(t, "working fact", result.Nodes[1].Content)
+}
+
+func TestRenderMarkdown_WithEdges(t *testing.T) {
+	result := &view.ComposeResult{
+		NodeCount:   2,
+		TotalTokens: 100,
+		Nodes: []*db.Node{
+			{ID: "AAA", Type: "fact", Content: "node a", Tags: []string{"tier:pinned"}},
+			{ID: "BBB", Type: "decision", Content: "node b", Tags: []string{"tier:pinned"}},
+		},
+		Edges: []*db.Edge{
+			{FromID: "AAA", ToID: "BBB", Type: "RELATES_TO"},
+		},
+	}
+	output := view.RenderMarkdown(result)
+	assert.Contains(t, output, "## Relationships")
+	assert.Contains(t, output, "RELATES_TO")
 }
 
 // BUG-1: compose with no --project should not filter out project-scoped nodes
