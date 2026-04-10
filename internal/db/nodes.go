@@ -53,7 +53,8 @@ type UpdateNodeInput struct {
 
 type ListOptions struct {
 	Type    string
-	Tag     string
+	Tag     string   // Deprecated: use Tags for multi-tag filtering
+	Tags    []string // Filter by multiple tags (AND logic)
 	Since   *time.Time
 	Limit   int
 	IncludeSuperseded bool
@@ -290,10 +291,16 @@ func (d *SQLiteStore) ListNodes(opts ListOptions) ([]*Node, error) {
 		conditions = append(conditions, "n.type = ?")
 		args = append(args, opts.Type)
 	}
+	// Merge single Tag into Tags for backwards compatibility
+	tags := opts.Tags
 	if opts.Tag != "" {
-		query += " JOIN tags t ON n.id = t.node_id"
-		conditions = append(conditions, "t.tag = ?")
-		args = append(args, opts.Tag)
+		tags = append(tags, opts.Tag)
+	}
+	for i, tag := range tags {
+		alias := fmt.Sprintf("t%d", i)
+		query += fmt.Sprintf(" JOIN tags %s ON n.id = %s.node_id", alias, alias)
+		conditions = append(conditions, fmt.Sprintf("%s.tag = ?", alias))
+		args = append(args, tag)
 	}
 	if opts.Since != nil {
 		conditions = append(conditions, "n.created_at >= ?")

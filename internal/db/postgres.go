@@ -287,10 +287,16 @@ func (d *PostgresStore) ListNodes(opts ListOptions) ([]*Node, error) {
 		args = append(args, opts.Type)
 		argIdx++
 	}
+	// Merge single Tag into Tags for backwards compatibility
+	tags := opts.Tags
 	if opts.Tag != "" {
-		query += " JOIN tags t ON n.id = t.node_id"
-		conditions = append(conditions, fmt.Sprintf("t.tag = $%d", argIdx))
-		args = append(args, opts.Tag)
+		tags = append(tags, opts.Tag)
+	}
+	for i, tag := range tags {
+		alias := fmt.Sprintf("t%d", i)
+		query += fmt.Sprintf(" JOIN tags %s ON n.id = %s.node_id", alias, alias)
+		conditions = append(conditions, fmt.Sprintf("%s.tag = $%d", alias, argIdx))
+		args = append(args, tag)
 		argIdx++
 	}
 	if opts.Since != nil {

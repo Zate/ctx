@@ -11,7 +11,7 @@ import (
 
 var (
 	listType  string
-	listTag   string
+	listTags  []string
 	listSince string
 	listLimit int
 )
@@ -24,7 +24,7 @@ var listCmd = &cobra.Command{
 
 func init() {
 	listCmd.Flags().StringVar(&listType, "type", "", "Filter by type")
-	listCmd.Flags().StringVar(&listTag, "tag", "", "Filter by tag")
+	listCmd.Flags().StringArrayVar(&listTags, "tag", nil, "Filter by tag (repeatable, AND logic)")
 	listCmd.Flags().StringVar(&listSince, "since", "", "Filter by creation time (e.g. 1h, 24h, 7d)")
 	listCmd.Flags().IntVar(&listLimit, "limit", 0, "Limit results")
 	rootCmd.AddCommand(listCmd)
@@ -39,7 +39,7 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	opts := db.ListOptions{
 		Type:  listType,
-		Tag:   listTag,
+		Tags:  listTags,
 		Limit: listLimit,
 	}
 

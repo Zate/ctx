@@ -227,6 +227,40 @@ func TestNodeList_ExcludesSuperseded(t *testing.T) {
 	assert.Equal(t, n2.ID, nodes[0].ID)
 }
 
+func TestNodeList_FilterByMultipleTags(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	// Node with both tags
+	n1, _ := d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "book pinned", Tags: []string{"project:Book", "tier:pinned"}})
+	// Node with only project:Book
+	_, _ = d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "book ref", Tags: []string{"project:Book", "tier:reference"}})
+	// Node with only tier:pinned but different project
+	_, _ = d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "other pinned", Tags: []string{"project:other", "tier:pinned"}})
+
+	nodes, err := d.ListNodes(db.ListOptions{Tags: []string{"project:Book", "tier:pinned"}})
+	require.NoError(t, err)
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, n1.ID, nodes[0].ID)
+}
+
+func TestNodeList_FilterBySingleTag(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	_, _ = d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "a", Tags: []string{"project:Book"}})
+	_, _ = d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "b", Tags: []string{"project:Book"}})
+	_, _ = d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "c", Tags: []string{"project:other"}})
+
+	// Single tag via Tags slice
+	nodes, err := d.ListNodes(db.ListOptions{Tags: []string{"project:Book"}})
+	require.NoError(t, err)
+	assert.Len(t, nodes, 2)
+
+	// Backwards compat: single tag via Tag field
+	nodes, err = d.ListNodes(db.ListOptions{Tag: "project:Book"})
+	require.NoError(t, err)
+	assert.Len(t, nodes, 2)
+}
+
 func TestResolveID_FullID(t *testing.T) {
 	d := testutil.SetupTestDB(t)
 
