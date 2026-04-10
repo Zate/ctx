@@ -309,6 +309,343 @@ func TestExecuteExpand_ShortID(t *testing.T) {
 	assert.Contains(t, pending, source.ID)
 }
 
+func TestExecuteRecall_SetsPending(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{
+			Type:  "recall",
+			Attrs: map[string]string{"query": "type:decision AND tag:project:ctx"},
+		},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	query, err := d.GetPending("recall_query")
+	require.NoError(t, err)
+	assert.Equal(t, "type:decision AND tag:project:ctx", query)
+}
+
+func TestExecuteRecall_MissingQuery(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{Type: "recall", Attrs: map[string]string{}},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Len(t, errs, 1)
+}
+
+func TestExecuteStatus_CountsNodesAndTags(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	_, err := d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "fact one", Tags: []string{"tier:pinned"}})
+	require.NoError(t, err)
+	_, err = d.CreateNode(db.CreateNodeInput{Type: "decision", Content: "decision one", Tags: []string{"tier:pinned"}})
+	require.NoError(t, err)
+	_, err = d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "fact two", Tags: []string{"tier:reference"}})
+	require.NoError(t, err)
+
+	cmds := []hook.CtxCommand{{Type: "status"}}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	status, err := d.GetPending("status_output")
+	require.NoError(t, err)
+	assert.Contains(t, status, "Nodes: 3")
+	assert.Contains(t, status, "fact: 2")
+	assert.Contains(t, status, "decision: 1")
+}
+
+func TestExecuteStatus_ExcludesSuperseded(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	n1, _ := d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "old"})
+	n2, _ := d.CreateNode(db.CreateNodeInput{Type: "fact", Content: "new"})
+	_, err := d.Exec("UPDATE nodes SET superseded_by = ? WHERE id = ?", n2.ID, n1.ID)
+	require.NoError(t, err)
+
+	cmds := []hook.CtxCommand{{Type: "status"}}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	status, err := d.GetPending("status_output")
+	require.NoError(t, err)
+	// Only 1 node visible (n2); n1 is superseded
+	assert.Contains(t, status, "Nodes: 1")
+}
+
+func TestExecuteTask_Start(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{
+			Type:  "task",
+			Attrs: map[string]string{"name": "refactor-auth", "action": "start"},
+		},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	current, err := d.GetPending("current_task")
+	require.NoError(t, err)
+	assert.Equal(t, "refactor-auth", current)
+}
+
+func TestExecuteTask_EndArchivesWorkingAndPromotesDecisions(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	// Simulate a running task with working-tier nodes tagged for it
+	require.NoError(t, d.SetPending("current_task", "feature-x"))
+
+	obs, err := d.CreateNode(db.CreateNodeInput{
+		Type:    "observation",
+		Content: "working observation",
+		Tags:    []string{"tier:working", "task:feature-x"},
+	})
+	require.NoError(t, err)
+	dec, err := d.CreateNode(db.CreateNodeInput{
+		Type:    "decision",
+		Content: "working decision",
+		Tags:    []string{"tier:working", "task:feature-x"},
+	})
+	require.NoError(t, err)
+
+	cmds := []hook.CtxCommand{
+		{
+			Type:  "task",
+			Attrs: map[string]string{"name": "feature-x", "action": "end"},
+		},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	// Non-decision → archived (tier:off-context)
+	obsTags, err := d.GetTags(obs.ID)
+	require.NoError(t, err)
+	assert.Contains(t, obsTags, "tier:off-context")
+	assert.NotContains(t, obsTags, "tier:working")
+
+	// Decision → promoted to reference
+	decTags, err := d.GetTags(dec.ID)
+	require.NoError(t, err)
+	assert.Contains(t, decTags, "tier:reference")
+	assert.NotContains(t, decTags, "tier:working")
+
+	// current_task cleared
+	_, err = d.GetPending("current_task")
+	assert.Error(t, err)
+}
+
+func TestExecuteTask_MissingAttrs(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{Type: "task", Attrs: map[string]string{"name": "foo"}}, // missing action
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Len(t, errs, 1)
+}
+
+func TestExecuteTask_UnknownAction(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{Type: "task", Attrs: map[string]string{"name": "foo", "action": "pause"}},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Len(t, errs, 1)
+}
+
+func TestExecuteSummarize_ArchivesSources(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	src1, err := d.CreateNode(db.CreateNodeInput{
+		Type: "fact", Content: "source one", Tags: []string{"tier:working"},
+	})
+	require.NoError(t, err)
+	src2, err := d.CreateNode(db.CreateNodeInput{
+		Type: "fact", Content: "source two", Tags: []string{"tier:working"},
+	})
+	require.NoError(t, err)
+
+	cmds := []hook.CtxCommand{
+		{
+			Type:    "summarize",
+			Attrs:   map[string]string{"nodes": src1.ID + "," + src2.ID, "archive": "true"},
+			Content: "Consolidated summary.",
+		},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	// Sources should now be tier:off-context
+	src1Tags, err := d.GetTags(src1.ID)
+	require.NoError(t, err)
+	assert.Contains(t, src1Tags, "tier:off-context")
+	assert.NotContains(t, src1Tags, "tier:working")
+
+	src2Tags, err := d.GetTags(src2.ID)
+	require.NoError(t, err)
+	assert.Contains(t, src2Tags, "tier:off-context")
+}
+
+func TestExecuteRemember_AutoTaskTagOnWorkingTier(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	require.NoError(t, d.SetPending("current_task", "refactor-auth"))
+
+	cmds := []hook.CtxCommand{
+		{
+			Type:    "remember",
+			Attrs:   map[string]string{"type": "observation", "tags": "tier:working"},
+			Content: "Found bug in token refresh.",
+		},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	nodes, err := d.ListNodes(db.ListOptions{Type: "observation"})
+	require.NoError(t, err)
+	require.Len(t, nodes, 1)
+
+	tags, err := d.GetTags(nodes[0].ID)
+	require.NoError(t, err)
+	assert.Contains(t, tags, "task:refactor-auth")
+}
+
+func TestExecuteRemember_NoAutoTaskTagOnNonWorkingTier(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	require.NoError(t, d.SetPending("current_task", "refactor-auth"))
+
+	cmds := []hook.CtxCommand{
+		{
+			Type:    "remember",
+			Attrs:   map[string]string{"type": "fact", "tags": "tier:pinned"},
+			Content: "Permanent fact.",
+		},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	nodes, err := d.ListNodes(db.ListOptions{Type: "fact"})
+	require.NoError(t, err)
+	require.Len(t, nodes, 1)
+
+	tags, err := d.GetTags(nodes[0].ID)
+	require.NoError(t, err)
+	assert.NotContains(t, tags, "task:refactor-auth")
+}
+
+func TestExecuteRemember_AutoAgentTag(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	require.NoError(t, d.SetPending("current_agent", "nyx"))
+
+	cmds := []hook.CtxCommand{
+		{
+			Type:    "remember",
+			Attrs:   map[string]string{"type": "fact", "tags": "tier:pinned"},
+			Content: "Agent scoped fact.",
+		},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	nodes, err := d.ListNodes(db.ListOptions{Type: "fact"})
+	require.NoError(t, err)
+	require.Len(t, nodes, 1)
+
+	tags, err := d.GetTags(nodes[0].ID)
+	require.NoError(t, err)
+	assert.Contains(t, tags, "agent:nyx")
+}
+
+func TestExecuteRemember_NoAutoAgentTagWhenExplicit(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	require.NoError(t, d.SetPending("current_agent", "nyx"))
+
+	cmds := []hook.CtxCommand{
+		{
+			Type:    "remember",
+			Attrs:   map[string]string{"type": "fact", "tags": "tier:pinned,agent:other"},
+			Content: "Explicit agent tag.",
+		},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Empty(t, errs)
+
+	nodes, err := d.ListNodes(db.ListOptions{Type: "fact"})
+	require.NoError(t, err)
+	require.Len(t, nodes, 1)
+
+	tags, err := d.GetTags(nodes[0].ID)
+	require.NoError(t, err)
+	assert.Contains(t, tags, "agent:other")
+	assert.NotContains(t, tags, "agent:nyx")
+}
+
+func TestExecuteRemember_MissingType(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{Type: "remember", Attrs: map[string]string{}, Content: "no type"},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Len(t, errs, 1)
+}
+
+func TestExecuteRemember_EmptyContent(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{Type: "remember", Attrs: map[string]string{"type": "fact"}, Content: "   "},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Len(t, errs, 1)
+}
+
+func TestExecuteCommands_UnknownCommandType(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{Type: "nonexistent", Attrs: map[string]string{}},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Len(t, errs, 1)
+	assert.Contains(t, errs[0].Error(), "unknown command type")
+}
+
+func TestExecuteCommands_ContinuesAfterError(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	cmds := []hook.CtxCommand{
+		{Type: "remember", Attrs: map[string]string{}, Content: "missing type"}, // fails
+		{Type: "remember", Attrs: map[string]string{"type": "fact"}, Content: "valid"},
+	}
+	errs := hook.ExecuteCommandsWithErrors(d, cmds)
+	assert.Len(t, errs, 1)
+
+	// Second command should have succeeded despite first failing
+	nodes, err := d.ListNodes(db.ListOptions{Type: "fact"})
+	require.NoError(t, err)
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, "valid", nodes[0].Content)
+}
+
+func TestExecuteCommands_SwallowsErrors(t *testing.T) {
+	d := testutil.SetupTestDB(t)
+
+	// ExecuteCommands returns nil even on errors (logs to stderr)
+	cmds := []hook.CtxCommand{
+		{Type: "remember", Attrs: map[string]string{}, Content: "missing type"},
+	}
+	err := hook.ExecuteCommands(d, cmds)
+	assert.NoError(t, err)
+}
+
 func TestExecuteSummarize_ShortID(t *testing.T) {
 	d := testutil.SetupTestDB(t)
 
