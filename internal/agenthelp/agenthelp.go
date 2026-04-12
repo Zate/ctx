@@ -1,0 +1,326 @@
+package agenthelp
+
+import (
+	"fmt"
+	"io"
+	"sort"
+	"strings"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+)
+
+// PrintIndex renders the Tier 1 compact command index for --agent-help (no subcommand).
+// Target: <300 tokens.
+func PrintIndex(w io.Writer, root *cobra.Command) {
+	fmt.Fprintf(w, "%s: %s\n", root.Name(), root.Short)
+	fmt.Fprintln(w, "commands:")
+
+	cmds := collectCommands(root, "")
+	sort.Slice(cmds, func(i, j int) bool {
+		return cmds[i].priority < cmds[j].priority
+	})
+	for _, c := range cmds {
+		fmt.Fprintf(w, "  %s  %s\n", c.usage, c.short)
+	}
+}
+
+// PrintCommand renders the Tier 2 detail for --agent-help <command>.
+// Target: <150 tokens.
+func PrintCommand(w io.Writer, root *cobra.Command, cmd *cobra.Command) {
+	path := commandPath(cmd, root)
+	pathKey := commandKey(cmd, root)
+
+	// Build signature — use ArgsOverride from metadata if available
+	args := inferArgs(cmd, pathKey)
+	sig := strings.TrimSpace(path + " " + args)
+	fmt.Fprintln(w, sig)
+
+	// Flags
+	flags := collectFlags(cmd, pathKey)
+	if len(flags) > 0 {
+		fmt.Fprintln(w, "flags:")
+		for _, f := range flags {
+			fmt.Fprintf(w, "  --%s %s  %s%s\n", f.name, f.typeName, f.purpose, f.constraint)
+		}
+	}
+
+	if meta, ok := Registry[pathKey]; ok {
+		if meta.Notes != "" {
+			fmt.Fprintf(w, "note: %s\n", meta.Notes)
+		}
+		if meta.Example != "" {
+			fmt.Fprintln(w, "example:")
+			fmt.Fprintf(w, "  %s\n", meta.Example)
+		}
+	}
+}
+
+// FormatError produces a tier 3 error hint for an unknown command.
+func FormatError(w io.Writer, root *cobra.Command, badCmd string) {
+	fmt.Fprintf(w, "error: unknown command %q\n", badCmd)
+
+	// Try fuzzy match against available commands
+	if match := closestCommand(root, badCmd); match != "" {
+		fmt.Fprintf(w, "hint: did you mean %q? run ctx --agent-help %s\n", match, match)
+	} else {
+		fmt.Fprintln(w, "hint: run ctx --agent-help for command list")
+	}
+}
+
+type commandEntry struct {
+	usage    string
+	short    string
+	priority int
+}
+
+const defaultPriority = 100
+
+// collectCommands walks the command tree and produces flat "group cmd <args>" entries.
+func collectCommands(parent *cobra.Command, prefix string) []commandEntry {
+	var entries []commandEntry
+
+	for _, cmd := range parent.Commands() {
+		if cmd.Hidden || !cmd.IsAvailableCommand() {
+			continue
+		}
+		// Skip noise commands
+		if cmd.Name() == "completion" || cmd.Name() == "help" {
+			continue
+		}
+		// Skip deprecated commands
+		if cmd.Deprecated != "" || strings.Contains(cmd.Short, "DEPRECATED") {
+			continue
+		}
+
+		name := cmd.Name()
+		if prefix != "" {
+			name = prefix + " " + name
+		}
+
+		// Check if hidden from agent index via metadata
+		if meta, ok := Registry[name]; ok && meta.AgentHidden {
+			continue
+		}
+
+		subs := cmd.Commands()
+		hasVisibleSubs := false
+		for _, s := range subs {
+			if !s.Hidden && s.IsAvailableCommand() {
+				hasVisibleSubs = true
+				break
+			}
+		}
+
+		if hasVisibleSubs {
+			entries = append(entries, collectCommands(cmd, name)...)
+		} else {
+			// Use ArgsOverride from registry if available
+			args := inlineArgs(cmd)
+			pri := defaultPriority
+			if meta, ok := Registry[name]; ok {
+				if meta.Priority > 0 {
+					pri = meta.Priority
+				}
+				if meta.ArgsOverride != "" {
+					args = meta.ArgsOverride
+				}
+			}
+			usage := name
+			if args != "" {
+				usage += " " + args
+			}
+			entries = append(entries, commandEntry{
+				usage:    usage,
+				short:    cmd.Short,
+				priority: pri,
+			})
+		}
+	}
+
+	return entries
+}
+
+// inlineArgs extracts inline arg hints from cmd.Use (everything after the command name).
+func inlineArgs(cmd *cobra.Command) string {
+	_, after, found := strings.Cut(cmd.Use, " ")
+	if !found {
+		return ""
+	}
+	return after
+}
+
+// inferArgs builds the full arg + [flags] signature for tier 2.
+func inferArgs(cmd *cobra.Command, pathKey string) string {
+	// Use override if registered
+	args := ""
+	if meta, ok := Registry[pathKey]; ok && meta.ArgsOverride != "" {
+		args = meta.ArgsOverride
+	} else {
+		args = inlineArgs(cmd)
+	}
+
+	hasFlags := false
+	cmd.NonInheritedFlags().VisitAll(func(f *pflag.Flag) {
+		if f.Name != "help" && !f.Hidden {
+			hasFlags = true
+		}
+	})
+	parts := []string{}
+	if args != "" {
+		parts = append(parts, args)
+	}
+	if hasFlags {
+		parts = append(parts, "[flags]")
+	}
+	return strings.Join(parts, " ")
+}
+
+type flagEntry struct {
+	name       string
+	typeName   string
+	purpose    string
+	constraint string
+}
+
+// collectFlags gathers non-hidden, non-inherited flags for a command.
+func collectFlags(cmd *cobra.Command, pathKey string) []flagEntry {
+	var flags []flagEntry
+	cmd.NonInheritedFlags().VisitAll(func(f *pflag.Flag) {
+		if f.Hidden || f.Name == "help" {
+			return
+		}
+
+		// Check for enum override in flag registry
+		flagKey := pathKey + "." + f.Name
+		typeName := mapType(f.Value.Type())
+		if fm, ok := FlagRegistry[flagKey]; ok && len(fm.EnumValues) > 0 {
+			typeName = "enum(" + strings.Join(fm.EnumValues, "|") + ")"
+		}
+
+		purpose := f.Usage
+		constraint := ""
+
+		// Check for required annotation
+		if ann, ok := f.Annotations[cobra.BashCompOneRequiredFlag]; ok && len(ann) > 0 && ann[0] == "true" {
+			constraint = " [required]"
+		}
+
+		// Non-obvious defaults
+		def := f.DefValue
+		if def != "" && def != "false" && def != "0" && def != "[]" {
+			if typeName != "bool" {
+				constraint += fmt.Sprintf(" [default: %s]", def)
+			}
+		}
+
+		flags = append(flags, flagEntry{
+			name:       f.Name,
+			typeName:   typeName,
+			purpose:    purpose,
+			constraint: constraint,
+		})
+	})
+	return flags
+}
+
+func mapType(cobraType string) string {
+	switch cobraType {
+	case "string":
+		return "string"
+	case "int", "int32", "int64":
+		return "int"
+	case "bool":
+		return "bool"
+	case "stringArray", "stringSlice":
+		return "string"
+	default:
+		return cobraType
+	}
+}
+
+// commandPath returns the full command path relative to root (e.g. "ctx hook session-start").
+func commandPath(cmd *cobra.Command, root *cobra.Command) string {
+	parts := []string{}
+	for c := cmd; c != nil && c != root; c = c.Parent() {
+		parts = append([]string{c.Name()}, parts...)
+	}
+	return root.Name() + " " + strings.Join(parts, " ")
+}
+
+// commandKey returns the registry key for a command (e.g. "hook session-start").
+func commandKey(cmd *cobra.Command, root *cobra.Command) string {
+	parts := []string{}
+	for c := cmd; c != nil && c != root; c = c.Parent() {
+		parts = append([]string{c.Name()}, parts...)
+	}
+	return strings.Join(parts, " ")
+}
+
+// ResolveCommand finds a command by its path segments (e.g. ["hook", "session-start"]).
+func ResolveCommand(root *cobra.Command, args []string) *cobra.Command {
+	cmd := root
+	for _, a := range args {
+		found := false
+		for _, c := range cmd.Commands() {
+			if c.Name() == a {
+				cmd = c
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil
+		}
+	}
+	if cmd == root {
+		return nil
+	}
+	return cmd
+}
+
+// closestCommand finds the closest matching command name using Levenshtein distance.
+func closestCommand(root *cobra.Command, input string) string {
+	best := ""
+	bestDist := 4 // threshold: must be within 3 edits
+	for _, cmd := range root.Commands() {
+		if cmd.Hidden || !cmd.IsAvailableCommand() {
+			continue
+		}
+		d := levenshtein(input, cmd.Name())
+		if d < bestDist {
+			bestDist = d
+			best = cmd.Name()
+		}
+	}
+	return best
+}
+
+// levenshtein computes the edit distance between two strings.
+func levenshtein(a, b string) int {
+	la, lb := len(a), len(b)
+	if la == 0 {
+		return lb
+	}
+	if lb == 0 {
+		return la
+	}
+
+	prev := make([]int, lb+1)
+	curr := make([]int, lb+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= la; i++ {
+		curr[0] = i
+		for j := 1; j <= lb; j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			curr[j] = min(curr[j-1]+1, min(prev[j]+1, prev[j-1]+cost))
+		}
+		prev, curr = curr, prev
+	}
+	return prev[lb]
+}
