@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/internal/db"
@@ -12,9 +13,10 @@ import (
 )
 
 var (
-	sessionStartProject   string
-	sessionStartAgent     string
+	sessionStartProject    string
+	sessionStartAgent      string
 	sessionStartPrimerFile string
+	sessionStartFailClosed bool
 )
 
 var sessionStartCmd = &cobra.Command{
@@ -27,6 +29,7 @@ func init() {
 	sessionStartCmd.Flags().StringVar(&sessionStartProject, "project", "", "Current project name for scoped context loading")
 	sessionStartCmd.Flags().StringVar(&sessionStartAgent, "agent", "", "Agent identity for scoped memory (overrides global --agent)")
 	sessionStartCmd.Flags().StringVar(&sessionStartPrimerFile, "primer-file", "", "Path to a markdown file with usage instructions to inject (replaces the built-in primer)")
+	sessionStartCmd.Flags().BoolVar(&sessionStartFailClosed, "fail-closed", false, "If --project is empty, load zero nodes instead of every pinned node globally")
 }
 
 func runSessionStart(cmd *cobra.Command, args []string) error {
@@ -77,6 +80,28 @@ func runSessionStart(cmd *cobra.Command, args []string) error {
 		_ = d.SetPending("current_project", sessionStartProject)
 	} else {
 		_ = d.DeletePending("current_project")
+	}
+
+	// Fail closed: when project detection failed upstream, emit an empty
+	// context with a warning primer instead of leaking every pinned node
+	// across projects. State has already been reset above.
+	if sessionStartFailClosed && sessionStartProject == "" {
+		result := &view.ComposeResult{
+			RenderedAt:        time.Now().UTC(),
+			LastSessionStores: lastStores,
+			Primer: "ctx: **project not detected** — context load skipped (fail-closed).\n" +
+				"Set `CTX_PROJECT` or run Claude from inside a git repo to enable scoped memory.\n",
+		}
+		context := view.RenderMarkdown(result)
+		output := map[string]interface{}{
+			"hookSpecificOutput": map[string]interface{}{
+				"hookEventName":     "SessionStart",
+				"additionalContext": context,
+			},
+		}
+		data, _ := json.Marshal(output)
+		fmt.Println(string(data))
+		return nil
 	}
 
 	// Get default view query

@@ -141,6 +141,17 @@ func (h *hookHarness) runSessionStart(project, agent string) string {
 	return out
 }
 
+// runSessionStartFailClosed calls session-start with --fail-closed.
+func (h *hookHarness) runSessionStartFailClosed(project string) string {
+	h.t.Helper()
+	args := []string{"hook", "session-start", "--db", h.dbPath, "--fail-closed"}
+	if project != "" {
+		args = append(args, "--project="+project)
+	}
+	out, _ := h.run(args, "")
+	return out
+}
+
 // runPromptSubmit calls the prompt-submit hook with transcript path on stdin.
 func (h *hookHarness) runPromptSubmit(transcriptPath, agent string) string {
 	h.t.Helper()
@@ -777,4 +788,72 @@ func TestIntegration_AutoTagging_NoOverrideExplicit(t *testing.T) {
 	tags := h.getNodeTags(nodes[0].ID)
 	assert.Contains(t, tags, "project:other", "explicit project should be kept")
 	assert.NotContains(t, tags, "project:myproject", "auto-project should NOT override explicit")
+}
+
+// extractAdditionalContext pulls hookSpecificOutput.additionalContext out of
+// the JSON emitted by session-start. Returns empty string if missing.
+func extractAdditionalContext(t *testing.T, out string) string {
+	t.Helper()
+	var parsed struct {
+		HookSpecificOutput struct {
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+	return parsed.HookSpecificOutput.AdditionalContext
+}
+
+// seedPinnedNode inserts a pinned node tagged for the given project.
+func (h *hookHarness) seedPinnedNode(project, content string) {
+	h.t.Helper()
+	d := h.openDB()
+	defer d.Close()
+	_, err := d.CreateNode(db.CreateNodeInput{
+		Type:    "fact",
+		Content: content,
+		Tags:    []string{"tier:pinned", "project:" + project},
+	})
+	require.NoError(h.t, err)
+}
+
+// TestIntegration_SessionStart_FailClosed verifies that --fail-closed with no
+// --project loads zero nodes instead of leaking every pinned node globally.
+// This guards against the bug where a plugin hook silently passed --project=""
+// and the composer returned the full pinned set across every project.
+func TestIntegration_SessionStart_FailClosed(t *testing.T) {
+	h := newHookHarness(t)
+
+	h.seedPinnedNode("book", "Novel plotting note.")
+	h.seedPinnedNode("cc-plugins", "Plugin marketplace convention.")
+	h.seedPinnedNode("memdown", "ctx implementation detail.")
+
+	// Sanity check: without fail-closed and no project, legacy behavior
+	// would leak all three nodes into context.
+	openOut := h.runSessionStart("", "")
+	openCtx := extractAdditionalContext(t, openOut)
+	assert.Contains(t, openCtx, "Novel plotting note.",
+		"without --fail-closed, ctx still returns all pinned nodes globally")
+
+	// With --fail-closed and no project, zero nodes should appear in context.
+	closedOut := h.runSessionStartFailClosed("")
+	closedCtx := extractAdditionalContext(t, closedOut)
+	assert.NotContains(t, closedCtx, "Novel plotting note.",
+		"fail-closed must not leak project:book nodes")
+	assert.NotContains(t, closedCtx, "Plugin marketplace convention.",
+		"fail-closed must not leak project:cc-plugins nodes")
+	assert.NotContains(t, closedCtx, "ctx implementation detail.",
+		"fail-closed must not leak project:memdown nodes")
+	assert.Contains(t, closedCtx, "0 nodes",
+		"fail-closed header should report zero nodes composed")
+	assert.Contains(t, closedCtx, "project not detected",
+		"fail-closed should surface a warning primer to the agent")
+
+	// With --fail-closed AND an explicit project, normal scoped behavior
+	// must still work — this is the happy path when git detection succeeds.
+	scopedOut := h.runSessionStartFailClosed("book")
+	scopedCtx := extractAdditionalContext(t, scopedOut)
+	assert.Contains(t, scopedCtx, "Novel plotting note.",
+		"fail-closed with --project=book should still load book nodes")
+	assert.NotContains(t, scopedCtx, "Plugin marketplace convention.",
+		"fail-closed with --project=book should still exclude other projects")
 }
