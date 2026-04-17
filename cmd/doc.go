@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -29,9 +31,43 @@ is returned.`,
 	RunE: runDocImport,
 }
 
+var docExportCmd = &cobra.Command{
+	Use:   "export <doc-id>",
+	Short: "Export a stored document to stdout or a file",
+	Long: `Export recomposes the document from the database and writes the result
+to stdout (default) or to the file specified with -o.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocExport,
+}
+
+var docShowCmd = &cobra.Command{
+	Use:   "show <doc-id>",
+	Short: "Show document metadata",
+	Long:  `Show prints the document node metadata (ID, src_hash, size, etc.) for the given document ID.`,
+	Args:  cobra.ExactArgs(1),
+	RunE:  runDocShow,
+}
+
+var docVerifyCmd = &cobra.Command{
+	Use:   "verify <doc-id>",
+	Short: "Verify byte-identity of a stored document",
+	Long: `Verify recomposes the document from the database, computes sha256 of
+the result, and compares it to the src_hash stored in the document node metadata.
+Exits with status 0 on match, 1 on mismatch.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocVerify,
+}
+
+var docExportOutput string
+
 func init() {
 	rootCmd.AddCommand(docCmd)
 	docCmd.AddCommand(docImportCmd)
+	docCmd.AddCommand(docExportCmd)
+	docCmd.AddCommand(docShowCmd)
+	docCmd.AddCommand(docVerifyCmd)
+
+	docExportCmd.Flags().StringVarP(&docExportOutput, "output", "o", "", "Output file path (default: stdout)")
 }
 
 func runDocImport(cmd *cobra.Command, args []string) error {
@@ -59,7 +95,7 @@ func runDocImport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Round-trip check: recompose and assert byte-identity.
-	composed, err := doc.ComposeFromStore(docID, store)
+	composed, err := doc.ComposeDoc(docID, store)
 	if err != nil {
 		// Best-effort cleanup: delete the document node (cascades via FK).
 		_ = store.DeleteNode(docID)
@@ -77,6 +113,109 @@ func runDocImport(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Imported: %s  (doc=%s, %d bytes)\n", path, docID, len(src))
 	return nil
+}
+
+func runDocExport(cmd *cobra.Command, args []string) error {
+	docID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	composed, err := doc.ComposeDoc(docID, store)
+	if err != nil {
+		return fmt.Errorf("doc export: %w", err)
+	}
+
+	if docExportOutput != "" {
+		if err := os.WriteFile(docExportOutput, composed, 0644); err != nil {
+			return fmt.Errorf("doc export: write file: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "Exported %d bytes to %s\n", len(composed), docExportOutput)
+		return nil
+	}
+
+	// Write to stdout.
+	if _, err := os.Stdout.Write(composed); err != nil {
+		return fmt.Errorf("doc export: write stdout: %w", err)
+	}
+	return nil
+}
+
+func runDocShow(cmd *cobra.Command, args []string) error {
+	docID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	node, err := store.GetNode(docID)
+	if err != nil {
+		return fmt.Errorf("doc show: %w", err)
+	}
+
+	var meta map[string]interface{}
+	if node.Metadata != "" {
+		if err := json.Unmarshal([]byte(node.Metadata), &meta); err != nil {
+			meta = map[string]interface{}{"raw": node.Metadata}
+		}
+	}
+
+	fmt.Printf("ID:         %s\n", node.ID)
+	fmt.Printf("Kind:       %s\n", node.Kind)
+	fmt.Printf("Created:    %s\n", node.CreatedAt.Format("2006-01-02T15:04:05Z"))
+	fmt.Printf("Updated:    %s\n", node.UpdatedAt.Format("2006-01-02T15:04:05Z"))
+	if srcHash, ok := meta["src_hash"].(string); ok {
+		fmt.Printf("src_hash:   %s\n", srcHash)
+	}
+
+	return nil
+}
+
+func runDocVerify(cmd *cobra.Command, args []string) error {
+	docID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	// Get stored src_hash from the document node metadata.
+	node, err := store.GetNode(docID)
+	if err != nil {
+		return fmt.Errorf("doc verify: get node: %w", err)
+	}
+
+	var meta map[string]interface{}
+	if err := json.Unmarshal([]byte(node.Metadata), &meta); err != nil {
+		return fmt.Errorf("doc verify: parse metadata: %w", err)
+	}
+
+	storedHash, ok := meta["src_hash"].(string)
+	if !ok || storedHash == "" {
+		return fmt.Errorf("doc verify: no src_hash in metadata for %q", docID)
+	}
+
+	// Recompose and compute hash.
+	composed, err := doc.ComposeDoc(docID, store)
+	if err != nil {
+		return fmt.Errorf("doc verify: compose: %w", err)
+	}
+
+	actualHash := fmt.Sprintf("%x", sha256.Sum256(composed))
+
+	if actualHash == storedHash {
+		fmt.Printf("OK  %s  (sha256=%s, %d bytes)\n", docID, actualHash, len(composed))
+		return nil
+	}
+
+	return fmt.Errorf("doc verify: MISMATCH for %q\n  stored:   %s\n  computed: %s\n  composed size: %d bytes",
+		docID, storedHash, actualHash, len(composed))
 }
 
 // firstDiffOffset returns the index of the first byte that differs between a and b.

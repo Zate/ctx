@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-fuzz build install clean mcp-config build-all lint
+.PHONY: test test-unit test-fuzz test-doc build install clean mcp-config build-all lint
 
 BINARY_NAME := ctx
 DIST_DIR := dist
@@ -29,9 +29,13 @@ $(PLATFORMS):
 install: build
 	./$(BINARY_NAME) install --bin-dir ~/.local/bin
 
-# All tests
-test:
+# All tests (includes corpus round-trip via test-doc dependency)
+test: test-doc
 	go test -v ./...
+
+# Corpus round-trip tests for doc package
+test-doc:
+	go test -v -run 'TestCorpus|TestCompose' ./internal/doc/...
 
 # Unit tests only
 test-unit:
