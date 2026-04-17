@@ -70,6 +70,10 @@ func Compose(d db.Store, opts ComposeOptions) (*ComposeResult, error) {
 			if getErr != nil {
 				continue
 			}
+			// Exclude non-memory nodes from seed traversal
+			if node.Kind != "" && node.Kind != db.NodeKindMemory {
+				continue
+			}
 			nodes = append(nodes, node)
 		}
 		// Enable edges automatically for seed traversal

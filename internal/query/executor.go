@@ -10,6 +10,8 @@ import (
 )
 
 // ExecuteQuery parses and executes a query against the database.
+// By default it scopes to kind='memory' nodes unless the query contains an
+// explicit kind:* predicate.
 func ExecuteQuery(d db.Store, queryStr string, includeSuperseded bool) ([]*db.Node, error) {
 	ast, err := Parse(queryStr)
 	if err != nil {
@@ -17,12 +19,23 @@ func ExecuteQuery(d db.Store, queryStr string, includeSuperseded bool) ([]*db.No
 	}
 
 	if ast == nil {
-		return d.ListNodes(db.ListOptions{IncludeSuperseded: includeSuperseded})
+		return d.ListMemoryNodes(db.ListOptions{IncludeSuperseded: includeSuperseded})
 	}
 
 	where, args, joins, err := buildSQL(ast)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	// Apply implicit kind='memory' filter unless the query explicitly uses kind:*
+	if !hasKindPredicate(ast) {
+		kindFilter := "n.kind = ?"
+		args = append([]interface{}{db.NodeKindMemory}, args...)
+		if where != "" {
+			where = kindFilter + " AND (" + where + ")"
+		} else {
+			where = kindFilter
+		}
 	}
 
 	if !includeSuperseded {
@@ -33,16 +46,16 @@ func ExecuteQuery(d db.Store, queryStr string, includeSuperseded bool) ([]*db.No
 		}
 	}
 
-	sql := "SELECT DISTINCT n.id, n.type, n.content, n.summary, n.token_estimate, n.superseded_by, n.created_at, n.updated_at, n.metadata FROM nodes n"
+	sqlStr := "SELECT DISTINCT n.id, n.type, n.kind, n.content, n.summary, n.token_estimate, n.superseded_by, n.created_at, n.updated_at, n.metadata FROM nodes n"
 	if joins != "" {
-		sql += " " + joins
+		sqlStr += " " + joins
 	}
 	if where != "" {
-		sql += " WHERE " + where
+		sqlStr += " WHERE " + where
 	}
-	sql += " ORDER BY n.created_at DESC"
+	sqlStr += " ORDER BY n.created_at DESC"
 
-	rows, err := d.Query(sql, args...)
+	rows, err := d.Query(sqlStr, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -54,7 +67,7 @@ func ExecuteQuery(d db.Store, queryStr string, includeSuperseded bool) ([]*db.No
 		var summary, supersededBy interface{}
 		var createdAt, updatedAt string
 
-		err := rows.Scan(&node.ID, &node.Type, &node.Content, &summary, &node.TokenEstimate,
+		err := rows.Scan(&node.ID, &node.Type, &node.Kind, &node.Content, &summary, &node.TokenEstimate,
 			&supersededBy, &createdAt, &updatedAt, &node.Metadata)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan node: %w", err)
@@ -79,6 +92,23 @@ func ExecuteQuery(d db.Store, queryStr string, includeSuperseded bool) ([]*db.No
 	}
 
 	return nodes, nil
+}
+
+// hasKindPredicate returns true if the AST contains any kind:* predicate,
+// indicating the caller explicitly wants to override the default kind filter.
+func hasKindPredicate(ast *QueryAST) bool {
+	if ast == nil {
+		return false
+	}
+	switch ast.Type {
+	case "predicate":
+		return ast.Key == "kind"
+	case "and", "or":
+		return hasKindPredicate(ast.Left) || hasKindPredicate(ast.Right)
+	case "not":
+		return hasKindPredicate(ast.Child)
+	}
+	return false
 }
 
 func buildSQL(ast *QueryAST) (string, []interface{}, string, error) {
@@ -166,6 +196,9 @@ func buildPredicate(ast *QueryAST) (string, []interface{}, string, error) {
 
 	case "to":
 		return "n.id IN (SELECT from_id FROM edges WHERE to_id = ?)", []interface{}{ast.Value}, "", nil
+
+	case "kind":
+		return "n.kind = ?", []interface{}{ast.Value}, "", nil
 
 	default:
 		return "", nil, "", fmt.Errorf("unknown key: %s", ast.Key)

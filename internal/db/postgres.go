@@ -349,6 +349,23 @@ func (d *PostgresStore) ListNodes(opts ListOptions) ([]*Node, error) {
 	return nodes, nil
 }
 
+// ListMemoryNodes returns only kind='memory' nodes.
+// NOTE: The Postgres schema does not yet have the kind column (v5 migration is SQLite-only).
+// This stub filters in-memory until a corresponding Postgres migration is added.
+func (d *PostgresStore) ListMemoryNodes(opts ListOptions) ([]*Node, error) {
+	all, err := d.ListNodes(opts)
+	if err != nil {
+		return nil, err
+	}
+	var out []*Node
+	for _, n := range all {
+		if n.Kind == "" || n.Kind == NodeKindMemory {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+
 func (d *PostgresStore) Search(queryStr string) ([]*Node, error) {
 	// PostgreSQL uses tsvector/tsquery for full-text search instead of FTS5
 	rows, err := d.db.Query(`SELECT n.id, n.type, n.content, n.summary, n.token_estimate, n.superseded_by, n.created_at, n.updated_at, n.metadata

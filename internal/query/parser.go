@@ -26,6 +26,7 @@ var validKeys = map[string]bool{
 	"has":     true,
 	"from":    true,
 	"to":      true,
+	"kind":    true, // explicit kind scoping: kind:memory, kind:document, kind:content
 }
 
 type parser struct {

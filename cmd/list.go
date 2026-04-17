@@ -52,7 +52,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		opts.Since = &t
 	}
 
-	nodes, err := d.ListNodes(opts)
+	nodes, err := d.ListMemoryNodes(opts)
 	if err != nil {
 		return err
 	}

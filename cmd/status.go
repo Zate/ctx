@@ -41,7 +41,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		Type  string `json:"type"`
 		Count int    `json:"count"`
 	}
-	rows, err := d.Query("SELECT n.type, COUNT(*) FROM nodes n WHERE n.superseded_by IS NULL" + af + " GROUP BY n.type ORDER BY n.type")
+	rows, err := d.Query("SELECT n.type, COUNT(*) FROM nodes n WHERE n.kind = 'memory' AND n.superseded_by IS NULL" + af + " GROUP BY n.type ORDER BY n.type")
 	if err != nil {
 		return err
 	}
@@ -58,15 +58,15 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	// Total tokens
 	var totalTokens int
-	_ = d.QueryRow("SELECT COALESCE(SUM(n.token_estimate), 0) FROM nodes n WHERE n.superseded_by IS NULL" + af).Scan(&totalTokens)
+	_ = d.QueryRow("SELECT COALESCE(SUM(n.token_estimate), 0) FROM nodes n WHERE n.kind = 'memory' AND n.superseded_by IS NULL" + af).Scan(&totalTokens)
 
 	// Edge count
 	var edgeCount int
 	_ = d.QueryRow("SELECT COUNT(*) FROM edges").Scan(&edgeCount)
 
-	// Unique tags (scoped to visible nodes)
+	// Unique tags (scoped to visible memory nodes)
 	var tagCount int
-	_ = d.QueryRow("SELECT COUNT(DISTINCT t.tag) FROM tags t JOIN nodes n ON t.node_id = n.id WHERE n.superseded_by IS NULL" + af).Scan(&tagCount)
+	_ = d.QueryRow("SELECT COUNT(DISTINCT t.tag) FROM tags t JOIN nodes n ON t.node_id = n.id WHERE n.kind = 'memory' AND n.superseded_by IS NULL" + af).Scan(&tagCount)
 
 	// Tier breakdown
 	type tierInfo struct {
@@ -76,7 +76,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 	tierRows, err := d.Query(`SELECT t.tag, COUNT(DISTINCT t.node_id), COALESCE(SUM(n.token_estimate), 0)
 		FROM tags t JOIN nodes n ON t.node_id = n.id
-		WHERE t.tag LIKE 'tier:%' AND n.superseded_by IS NULL` + af + `
+		WHERE t.tag LIKE 'tier:%' AND n.kind = 'memory' AND n.superseded_by IS NULL` + af + `
 		GROUP BY t.tag ORDER BY t.tag`)
 	if err != nil {
 		return err

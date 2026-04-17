@@ -15,6 +15,8 @@ type Store interface {
 	UpdateNode(id string, input UpdateNodeInput) (*Node, error)
 	DeleteNode(id string) error
 	ListNodes(opts ListOptions) ([]*Node, error)
+	// ListMemoryNodes returns only kind='memory' nodes (safe default for all memory-path surfaces).
+	ListMemoryNodes(opts ListOptions) ([]*Node, error)
 	Search(query string) ([]*Node, error)
 	ResolveID(prefix string) (string, error)
 	FindByTypeAndContent(nodeType, content string) (*Node, error)

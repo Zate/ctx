@@ -42,7 +42,11 @@ func (d *SQLiteStore) GetTags(nodeID string) ([]string, error) {
 }
 
 func (d *SQLiteStore) ListAllTags() ([]string, error) {
-	rows, err := d.db.Query("SELECT DISTINCT tag FROM tags ORDER BY tag")
+	// Only return tags belonging to kind='memory' nodes.
+	rows, err := d.db.Query(`SELECT DISTINCT t.tag FROM tags t
+		JOIN nodes n ON t.node_id = n.id
+		WHERE n.kind = 'memory'
+		ORDER BY t.tag`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tags: %w", err)
 	}
@@ -60,7 +64,11 @@ func (d *SQLiteStore) ListAllTags() ([]string, error) {
 }
 
 func (d *SQLiteStore) ListTagsByPrefix(prefix string) ([]string, error) {
-	rows, err := d.db.Query("SELECT DISTINCT tag FROM tags WHERE tag LIKE ? ORDER BY tag", prefix+"%")
+	// Only return tags belonging to kind='memory' nodes.
+	rows, err := d.db.Query(`SELECT DISTINCT t.tag FROM tags t
+		JOIN nodes n ON t.node_id = n.id
+		WHERE n.kind = 'memory' AND t.tag LIKE ?
+		ORDER BY t.tag`, prefix+"%")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tags by prefix: %w", err)
 	}
@@ -78,5 +86,5 @@ func (d *SQLiteStore) ListTagsByPrefix(prefix string) ([]string, error) {
 }
 
 func (d *SQLiteStore) GetNodesByTag(tag string) ([]*Node, error) {
-	return d.ListNodes(ListOptions{Tag: tag})
+	return d.ListMemoryNodes(ListOptions{Tag: tag})
 }
