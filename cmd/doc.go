@@ -93,6 +93,79 @@ Content nodes are NOT indexed in nodes_fts, so this uses LIKE-based matching.`,
 
 var docExportOutput string
 
+// --- 5.6: mv, insert, remove flags ---
+var docMvDocID string
+var docMvToPos int
+var docInsertDocID string
+var docInsertPos int
+var docInsertMemory bool
+var docRemoveDocID string
+var docRemoveRecursive bool
+
+// --- 5.7: fork, split flags ---
+var docSplitDocID string
+var docSplitOffset int
+
+var docMvCmd = &cobra.Command{
+	Use:   "mv <node-id>",
+	Short: "Reparent (reorder) a node within a document",
+	Long: `mv reorders a content node within its document. The node is moved to the
+specified position (1-indexed); sibling positions are renumbered accordingly.
+Cross-document moves are rejected.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocMv,
+}
+
+var docInsertCmd = &cobra.Command{
+	Use:   "insert <node-id>",
+	Short: "Insert a node into a document at a specified position",
+	Long: `insert adds an existing content node (or memory node with --memory) to a
+document at the given position (1-indexed). Existing nodes at that position and
+beyond are shifted forward. The node must already exist in the store.
+
+Note: --memory allows inserting a kind='memory' node. Its kind is NOT changed
+(Phase 6 handles kind promotion to 'content' for inline memory nodes).`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocInsert,
+}
+
+var docRemoveCmd = &cobra.Command{
+	Use:   "remove <node-id>",
+	Short: "Remove a node from a document (drops CONTAINS edge, preserves content node)",
+	Long: `remove drops the CONTAINS edge for the given node in the specified document.
+The content node itself is NOT deleted — it may be referenced by other documents.
+If the node has descendant CONTAINS edges in the document, --recursive is required.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocRemove,
+}
+
+var docForkCmd = &cobra.Command{
+	Use:   "fork <doc-id>",
+	Short: "Fork a document to share content nodes with independent structure",
+	Long: `fork creates a new kind='document' node with independent CONTAINS edges
+pointing to the same content nodes as the original. The two documents diverge
+independently after the fork — editing one's structure does not affect the other.
+Content node bodies are shared and immutable.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocFork,
+}
+
+var docSplitCmd = &cobra.Command{
+	Use:   "split <node-id>",
+	Short: "Split a content node at a byte offset into two siblings",
+	Long: `split replaces the CONTAINS edge for node-id with two new content nodes:
+the first containing body[:offset] and the second body[offset:]. The original
+content node is preserved but no longer referenced by the document.
+
+Rejections:
+  - offset == 0 or offset == len(body): would produce an empty half.
+  - offset lands on a UTF-8 continuation byte.
+
+sha256(compose) of the parent document is unchanged after split.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocSplit,
+}
+
 func init() {
 	rootCmd.AddCommand(docCmd)
 	docCmd.AddCommand(docImportCmd)
@@ -102,9 +175,37 @@ func init() {
 	docCmd.AddCommand(docScaffoldCmd)
 	docCmd.AddCommand(docApplyCmd)
 	docCmd.AddCommand(docSearchCmd)
+	docCmd.AddCommand(docMvCmd)
+	docCmd.AddCommand(docInsertCmd)
+	docCmd.AddCommand(docRemoveCmd)
+	docCmd.AddCommand(docForkCmd)
+	docCmd.AddCommand(docSplitCmd)
 
 	docExportCmd.Flags().StringVarP(&docExportOutput, "output", "o", "", "Output file path (default: stdout)")
 	docSearchCmd.Flags().IntVarP(&docSearchLimit, "limit", "n", 50, "Maximum number of results")
+
+	// mv flags
+	docMvCmd.Flags().StringVar(&docMvDocID, "doc", "", "Document ID containing the node (required)")
+	docMvCmd.Flags().IntVar(&docMvToPos, "pos", 0, "Target position (1-indexed, required)")
+	_ = docMvCmd.MarkFlagRequired("doc")
+	_ = docMvCmd.MarkFlagRequired("pos")
+
+	// insert flags
+	docInsertCmd.Flags().StringVar(&docInsertDocID, "doc", "", "Document ID to insert into (required)")
+	docInsertCmd.Flags().IntVar(&docInsertPos, "pos", 1, "Position to insert at (1-indexed, default: 1)")
+	docInsertCmd.Flags().BoolVar(&docInsertMemory, "memory", false, "Allow inserting a kind='memory' node (Phase 6 inline preview)")
+	_ = docInsertCmd.MarkFlagRequired("doc")
+
+	// remove flags
+	docRemoveCmd.Flags().StringVar(&docRemoveDocID, "doc", "", "Document ID to remove from (required)")
+	docRemoveCmd.Flags().BoolVar(&docRemoveRecursive, "recursive", false, "Also remove descendant CONTAINS edges")
+	_ = docRemoveCmd.MarkFlagRequired("doc")
+
+	// split flags
+	docSplitCmd.Flags().StringVar(&docSplitDocID, "doc", "", "Document ID containing the node (required)")
+	docSplitCmd.Flags().IntVar(&docSplitOffset, "at", 0, "Byte offset to split at (required)")
+	_ = docSplitCmd.MarkFlagRequired("doc")
+	_ = docSplitCmd.MarkFlagRequired("at")
 }
 
 func runDocImport(cmd *cobra.Command, args []string) error {
@@ -348,5 +449,105 @@ func runDocSearch(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// 5.6: mv, insert, remove handlers
+// ---------------------------------------------------------------------------
+
+func runDocMv(cmd *cobra.Command, args []string) error {
+	nodeID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	if err := doc.MvNode(docMvDocID, nodeID, docMvToPos, store); err != nil {
+		return fmt.Errorf("doc mv: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Moved node %s to position %d in document %s\n", nodeID, docMvToPos, docMvDocID)
+	return nil
+}
+
+func runDocInsert(cmd *cobra.Command, args []string) error {
+	nodeID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	var insertErr error
+	if docInsertMemory {
+		insertErr = doc.InsertMemoryNode(docInsertDocID, nodeID, docInsertPos, store)
+	} else {
+		insertErr = doc.InsertNode(docInsertDocID, nodeID, docInsertPos, store)
+	}
+	if insertErr != nil {
+		return fmt.Errorf("doc insert: %w", insertErr)
+	}
+
+	fmt.Fprintf(os.Stderr, "Inserted node %s at position %d in document %s\n", nodeID, docInsertPos, docInsertDocID)
+	return nil
+}
+
+func runDocRemove(cmd *cobra.Command, args []string) error {
+	nodeID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	if err := doc.RemoveNode(docRemoveDocID, nodeID, docRemoveRecursive, store); err != nil {
+		return fmt.Errorf("doc remove: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Removed node %s from document %s (content node preserved)\n", nodeID, docRemoveDocID)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// 5.7: fork, split handlers
+// ---------------------------------------------------------------------------
+
+func runDocFork(cmd *cobra.Command, args []string) error {
+	docID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	forkID, err := doc.ForkDoc(docID, store)
+	if err != nil {
+		return fmt.Errorf("doc fork: %w", err)
+	}
+
+	fmt.Printf("Forked: %s → %s\n", docID, forkID)
+	return nil
+}
+
+func runDocSplit(cmd *cobra.Command, args []string) error {
+	nodeID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	if err := doc.SplitNode(docSplitDocID, nodeID, docSplitOffset, store); err != nil {
+		return fmt.Errorf("doc split: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Split node %s at offset %d in document %s\n", nodeID, docSplitOffset, docSplitDocID)
 	return nil
 }
