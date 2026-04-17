@@ -63,6 +63,27 @@ Selects nodes matching a query, sorts by tier priority then recency, applies a t
 ### Installer (`cmd/install.go`)
 `ctx install` is deprecated in favor of the plugin-based installation. `ctx init` handles database creation only. The plugin (`cc-plugins/plugins/ctx/`) handles binary auto-download, hook registration, and skill injection.
 
+### ctx doc (`cmd/doc.go`, `internal/doc/`)
+An opt-in subsystem for decomposing, editing, and recomposing markdown documents. Completely separate from the memory subsystem.
+
+**Critical isolation rule:** `ctx doc` nodes are invisible to memory queries by default. Specifically:
+- `ctx recall`, `ctx search`, `ctx query`, `ctx list`, `ctx status`: filter to `kind=memory` nodes; content and document nodes are excluded.
+- `ctx hook session-start`: composes only `kind=memory` nodes matching the tier query; doc nodes never appear.
+- `ctx hook stop` / `<ctx:remember>`: only creates `kind=memory` nodes.
+
+**When to use:** Only when the user explicitly asks to decompose, edit sections of, or recompose a markdown document. Do not reach for `ctx doc` during ordinary memory operations.
+
+**How it works:**
+1. `ctx doc import <file>` — decomposes the file at heading boundaries into a `kind=document` node + `kind=content` nodes linked by CONTAINS edges. Byte-identity is verified immediately (rolls back on failure).
+2. Edit structure via `ctx doc scaffold` (emit XML) + `ctx doc apply` (apply diff) or individual commands (`mv`, `insert`, `remove`, `split`, `fork`).
+3. `ctx doc export <id>` — recomposes and emits the original bytes.
+4. `ctx doc promote <node-id> --into-memory --type <type>` — selectively promotes a content node to a memory node (requires `--into-memory` safety gate).
+5. `ctx doc inline <doc-id> --memory <memory-id>` — injects a memory node's body into a document's composed output without changing its kind.
+
+**Agent-help:** All `ctx doc *` subcommands are hidden from the tier-1 `ctx --agent-help` index (opt-in posture). Access via `ctx --agent-help doc <subcommand>`.
+
+See `docs/doc-subsystem.md` for full command reference, scaffold XML format, corpus fixture layout, and byte-identity contract details.
+
 ## Working on This Project
 
 ### Running Tests

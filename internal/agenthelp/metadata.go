@@ -161,6 +161,94 @@ var Registry = map[string]CommandMeta{
 		Example:  `ctx version`,
 	},
 
+	// Doc subsystem — opt-in only; agents do NOT use these by default.
+	// ctx doc nodes are invisible to memory queries (recall/search/status/session-start).
+	// Reach for these ONLY when the user explicitly asks to decompose/edit/compose a markdown document.
+	// All doc subcommands are hidden from tier-1 index to prevent accidental adoption.
+	// Access via: ctx --agent-help doc <subcommand>
+	"doc import": {
+		AgentHidden:  true,
+		ArgsOverride: "<path>",
+		Example:      `ctx doc import README.md`,
+		Notes:        "byte-identity verified on import; rolls back on mismatch",
+	},
+	"doc export": {
+		AgentHidden:  true,
+		ArgsOverride: "<doc-id>",
+		Example:      `ctx doc export 01ABC123`,
+		Notes:        "writes to stdout by default; use -o to write to a file",
+	},
+	"doc show": {
+		AgentHidden:  true,
+		ArgsOverride: "<doc-id>",
+		Example:      `ctx doc show 01ABC123`,
+	},
+	"doc verify": {
+		AgentHidden:  true,
+		ArgsOverride: "<doc-id>",
+		Example:      `ctx doc verify 01ABC123`,
+		Notes:        "exits 0 on sha256 match, 1 on mismatch",
+	},
+	"doc scaffold": {
+		AgentHidden:  true,
+		ArgsOverride: "<doc-id>",
+		Example:      `ctx doc scaffold 01ABC123 > scaffold.xml`,
+		Notes:        "emits pure-structure XML; no content bodies embedded",
+	},
+	"doc apply": {
+		AgentHidden:  true,
+		ArgsOverride: "<xml-file>",
+		Example:      `ctx doc apply scaffold.xml`,
+		Notes:        "diffs scaffold against live edge graph and applies minimal mutations transactionally",
+	},
+	"doc search": {
+		AgentHidden:  true,
+		ArgsOverride: "<query>",
+		Example:      `ctx doc search "database migration"`,
+		Notes:        "LIKE-based match over content node bodies only; not FTS; separate from ctx search",
+	},
+	"doc mv": {
+		AgentHidden:  true,
+		ArgsOverride: "<node-id>",
+		Example:      `ctx doc mv 01ABC123 --doc 01DOC456 --pos 3`,
+	},
+	"doc insert": {
+		AgentHidden:  true,
+		ArgsOverride: "<node-id>",
+		Example:      `ctx doc insert 01ABC123 --doc 01DOC456 --pos 2`,
+		Notes:        "node must already exist; use --memory to insert a kind=memory node",
+	},
+	"doc remove": {
+		AgentHidden:  true,
+		ArgsOverride: "<node-id>",
+		Example:      `ctx doc remove 01ABC123 --doc 01DOC456`,
+		Notes:        "drops CONTAINS edge only; content node is preserved",
+	},
+	"doc fork": {
+		AgentHidden:  true,
+		ArgsOverride: "<doc-id>",
+		Example:      `ctx doc fork 01DOC456`,
+		Notes:        "new document shares content nodes; structures diverge independently after fork",
+	},
+	"doc split": {
+		AgentHidden:  true,
+		ArgsOverride: "<node-id>",
+		Example:      `ctx doc split 01ABC123 --doc 01DOC456 --at 42`,
+		Notes:        "offset must land on a UTF-8 character boundary; sha256(compose) unchanged after split",
+	},
+	"doc promote": {
+		AgentHidden:  true,
+		ArgsOverride: "<node-id>",
+		Example:      `ctx doc promote 01ABC123 --into-memory --type fact`,
+		Notes:        "--into-memory is a required safety gate; valid types: fact, decision, pattern, observation, hypothesis, task, summary, source, open-question",
+	},
+	"doc inline": {
+		AgentHidden:  true,
+		ArgsOverride: "<doc-id>",
+		Example:      `ctx doc inline 01DOC456 --memory 01MEM789 --pos 1`,
+		Notes:        "memory node kind unchanged; body appears in composed output at specified position",
+	},
+
 	// Server/auth/sync — not agent-relevant for memory operations
 	"serve":            {AgentHidden: true},
 	"mcp":              {AgentHidden: true},
@@ -196,5 +284,8 @@ var FlagRegistry = map[string]FlagMeta{
 	},
 	"compose.template": {
 		EnumValues: []string{"default", "document"},
+	},
+	"doc promote.type": {
+		EnumValues: []string{"fact", "decision", "pattern", "observation", "hypothesis", "task", "summary", "source", "open-question"},
 	},
 }
