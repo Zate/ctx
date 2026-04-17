@@ -12,6 +12,7 @@ var validEdgeTypes = map[string]bool{
 	"SUPERSEDES":   true,
 	"RELATES_TO":   true,
 	"CHILD_OF":     true,
+	"CONTAINS":     true, // document-scoped edge: document→content nodes
 }
 
 type Edge struct {
