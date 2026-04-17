@@ -106,6 +106,15 @@ var docRemoveRecursive bool
 var docSplitDocID string
 var docSplitOffset int
 
+// --- 6.3: promote flags ---
+var docPromoteIntoMemory bool
+var docPromoteType string
+
+// --- 6.4: inline flags ---
+var docInlineMemoryID string
+var docInlineParentID string
+var docInlinePos int
+
 var docMvCmd = &cobra.Command{
 	Use:   "mv <node-id>",
 	Short: "Reparent (reorder) a node within a document",
@@ -166,6 +175,41 @@ sha256(compose) of the parent document is unchanged after split.`,
 	RunE: runDocSplit,
 }
 
+var docPromoteCmd = &cobra.Command{
+	Use:   "promote <node-id>",
+	Short: "Promote a content node to a memory node",
+	Long: `promote changes a kind='content' node to kind='memory', making it available
+to the memory recall surface and FTS search (ctx search).
+
+Requires --into-memory (safety gate — no accidental promotions) and --type
+(the memory node type to assign, e.g. fact, decision, pattern).
+
+The node's body is unchanged; all CONTAINS edges are preserved; sha256(compose)
+of the parent document is byte-identical before and after promotion.
+
+Valid types: fact, decision, pattern, observation, hypothesis, task, summary,
+source, open-question.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocPromote,
+}
+
+var docInlineCmd = &cobra.Command{
+	Use:   "inline <doc-id>",
+	Short: "Inline a memory node into a document",
+	Long: `inline creates a CONTAINS edge from doc-id to an existing kind='memory' node,
+making its body appear in the composed document output at the specified position.
+
+The memory node's kind is NOT changed — it remains available to the memory
+recall surface. To permanently promote a content node, use 'ctx doc promote'.
+
+Flags:
+  --memory <memory-id>   The kind='memory' node to inline (required).
+  --parent <parent-id>   Parent node ID (reserved for future hierarchical use).
+  --pos <n>              Position to insert at (1-indexed, default: append).`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocInline,
+}
+
 func init() {
 	rootCmd.AddCommand(docCmd)
 	docCmd.AddCommand(docImportCmd)
@@ -180,6 +224,8 @@ func init() {
 	docCmd.AddCommand(docRemoveCmd)
 	docCmd.AddCommand(docForkCmd)
 	docCmd.AddCommand(docSplitCmd)
+	docCmd.AddCommand(docPromoteCmd)
+	docCmd.AddCommand(docInlineCmd)
 
 	docExportCmd.Flags().StringVarP(&docExportOutput, "output", "o", "", "Output file path (default: stdout)")
 	docSearchCmd.Flags().IntVarP(&docSearchLimit, "limit", "n", 50, "Maximum number of results")
@@ -206,6 +252,17 @@ func init() {
 	docSplitCmd.Flags().IntVar(&docSplitOffset, "at", 0, "Byte offset to split at (required)")
 	_ = docSplitCmd.MarkFlagRequired("doc")
 	_ = docSplitCmd.MarkFlagRequired("at")
+
+	// promote flags
+	docPromoteCmd.Flags().BoolVar(&docPromoteIntoMemory, "into-memory", false, "Confirm promotion to memory (required safety gate)")
+	docPromoteCmd.Flags().StringVar(&docPromoteType, "type", "", "Memory node type to assign (required): fact, decision, pattern, observation, hypothesis, task, summary, source, open-question")
+	_ = docPromoteCmd.MarkFlagRequired("type")
+
+	// inline flags
+	docInlineCmd.Flags().StringVar(&docInlineMemoryID, "memory", "", "ID of the kind='memory' node to inline (required)")
+	docInlineCmd.Flags().StringVar(&docInlineParentID, "parent", "", "Parent node ID (reserved for future use)")
+	docInlineCmd.Flags().IntVar(&docInlinePos, "pos", 0, "Insert position 1-indexed (default: append to end)")
+	_ = docInlineCmd.MarkFlagRequired("memory")
 }
 
 func runDocImport(cmd *cobra.Command, args []string) error {
@@ -549,5 +606,58 @@ func runDocSplit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "Split node %s at offset %d in document %s\n", nodeID, docSplitOffset, docSplitDocID)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// 6.3: promote handler
+// ---------------------------------------------------------------------------
+
+func runDocPromote(cmd *cobra.Command, args []string) error {
+	nodeID := args[0]
+
+	if !docPromoteIntoMemory {
+		return fmt.Errorf("doc promote: --into-memory flag is required to confirm promotion\n" +
+			"  This flag prevents accidental promotions. Pass --into-memory to proceed.")
+	}
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	if err := doc.PromoteNode(nodeID, docPromoteType, store); err != nil {
+		return fmt.Errorf("doc promote: %w", err)
+	}
+
+	fmt.Printf("Promoted %s → memory/%s\n", nodeID, docPromoteType)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// 6.4: inline handler
+// ---------------------------------------------------------------------------
+
+func runDocInline(cmd *cobra.Command, args []string) error {
+	docID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	// If pos == 0 (not set), append to end by passing a large position (will be clamped).
+	pos := docInlinePos
+	if pos == 0 {
+		pos = 999999 // will be clamped to len(siblings)+1 by InsertMemoryNode
+	}
+
+	if err := doc.InlineNode(docID, docInlineMemoryID, pos, store); err != nil {
+		return fmt.Errorf("doc inline: %w", err)
+	}
+
+	fmt.Printf("Inlined %s into %s at pos %d\n", docInlineMemoryID, docID, pos)
 	return nil
 }
