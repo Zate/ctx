@@ -11,6 +11,8 @@ import (
 	"github.com/zate/ctx/internal/doc"
 )
 
+var docSearchLimit int
+
 var docCmd = &cobra.Command{
 	Use:   "doc",
 	Short: "Document decomposition and composition",
@@ -58,6 +60,37 @@ Exits with status 0 on match, 1 on mismatch.`,
 	RunE: runDocVerify,
 }
 
+var docScaffoldCmd = &cobra.Command{
+	Use:   "scaffold <doc-id>",
+	Short: "Emit <ctx:doc> XML scaffold for a document",
+	Long: `Scaffold emits the pure-structure XML for the document's CONTAINS edge graph.
+The XML contains only node refs — no content bodies are embedded.
+Output is deterministic (nodes ordered by position).`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocScaffold,
+}
+
+var docApplyCmd = &cobra.Command{
+	Use:   "apply <xml-file>",
+	Short: "Apply a scaffold XML to reorder/add/remove document edges",
+	Long: `Apply parses the scaffold XML (previously produced by 'ctx doc scaffold'),
+diffs it against the current CONTAINS edge graph, and applies a minimal set of
+mutations (reorder, add, remove) transactionally. Content node bodies are never
+modified. Unresolved refs cause an error listing the missing IDs.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocApply,
+}
+
+var docSearchCmd = &cobra.Command{
+	Use:   "search <query>",
+	Short: "Search content node bodies (doc-path only)",
+	Long: `Search performs a substring match over kind='content' node bodies.
+This is strictly separate from 'ctx search' which queries the memory FTS surface.
+Content nodes are NOT indexed in nodes_fts, so this uses LIKE-based matching.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDocSearch,
+}
+
 var docExportOutput string
 
 func init() {
@@ -66,8 +99,12 @@ func init() {
 	docCmd.AddCommand(docExportCmd)
 	docCmd.AddCommand(docShowCmd)
 	docCmd.AddCommand(docVerifyCmd)
+	docCmd.AddCommand(docScaffoldCmd)
+	docCmd.AddCommand(docApplyCmd)
+	docCmd.AddCommand(docSearchCmd)
 
 	docExportCmd.Flags().StringVarP(&docExportOutput, "output", "o", "", "Output file path (default: stdout)")
+	docSearchCmd.Flags().IntVarP(&docSearchLimit, "limit", "n", 50, "Maximum number of results")
 }
 
 func runDocImport(cmd *cobra.Command, args []string) error {
@@ -230,4 +267,86 @@ func firstDiffOffset(a, b []byte) int {
 		}
 	}
 	return n
+}
+
+func runDocScaffold(cmd *cobra.Command, args []string) error {
+	docID := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	xmlBytes, err := doc.MarshalScaffold(docID, store)
+	if err != nil {
+		return fmt.Errorf("doc scaffold: %w", err)
+	}
+
+	if _, err := os.Stdout.Write(xmlBytes); err != nil {
+		return fmt.Errorf("doc scaffold: write: %w", err)
+	}
+	return nil
+}
+
+func runDocApply(cmd *cobra.Command, args []string) error {
+	xmlFile := args[0]
+
+	xmlBytes, err := os.ReadFile(xmlFile)
+	if err != nil {
+		return fmt.Errorf("doc apply: read file: %w", err)
+	}
+
+	s, err := doc.UnmarshalScaffold(xmlBytes)
+	if err != nil {
+		return fmt.Errorf("doc apply: parse scaffold: %w", err)
+	}
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	if err := doc.ApplyScaffold(s, store); err != nil {
+		return fmt.Errorf("doc apply: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Applied scaffold for document %s\n", s.DocID)
+	return nil
+}
+
+func runDocSearch(cmd *cobra.Command, args []string) error {
+	query := args[0]
+
+	store, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	nodes, err := doc.SearchContent(query, docSearchLimit, store)
+	if err != nil {
+		return fmt.Errorf("doc search: %w", err)
+	}
+
+	switch format {
+	case "json":
+		data, _ := json.MarshalIndent(nodes, "", "  ")
+		fmt.Println(string(data))
+	default:
+		if len(nodes) == 0 {
+			fmt.Println("No results found.")
+			return nil
+		}
+		for _, n := range nodes {
+			preview := n.Content
+			if len(preview) > 120 {
+				preview = preview[:120] + "..."
+			}
+			fmt.Printf("[%s] %s\n", n.ID, preview)
+		}
+	}
+
+	return nil
 }
