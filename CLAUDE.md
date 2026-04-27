@@ -63,6 +63,9 @@ Selects nodes matching a query, sorts by tier priority then recency, applies a t
 ### Installer (`cmd/install.go`)
 `ctx install` is deprecated in favor of the plugin-based installation. `ctx init` handles database creation only. The plugin (`cc-plugins/plugins/ctx/`) handles binary auto-download, hook registration, and skill injection.
 
+### Access Logging (`internal/db/access_log.go`, `cmd/accessed.go`)
+Every memory-node retrieval records a row in the `access_log` table (schema v6). `LogAccess` / `LogAccessBatch` gate inserts behind a `kind='memory'` EXISTS subquery, so doc/content nodes are silently skipped — call sites do not need to filter. Retrieval surfaces (`show`, `query`, `search`, `list`, `compose`, `related`, `trace`, `session-start`, recall execution) call these helpers; writes do not. Logging failures are swallowed and never propagate to the caller. `ctx accessed` queries the log with `--node`, `--type`, `--since`, `--limit`, `--json`, `--all-agents`; by default it scopes to the current `--agent` / `$CTX_AGENT`. `QueryAccess` re-applies the `kind='memory'` filter on read, so raw-inserted rows for non-memory nodes are never surfaced. See `docs/access-logging.md`.
+
 ### ctx doc (`cmd/doc.go`, `internal/doc/`)
 An opt-in subsystem for decomposing, editing, and recomposing markdown documents. Completely separate from the memory subsystem.
 

@@ -104,6 +104,11 @@ var Registry = map[string]CommandMeta{
 		Priority: 42,
 		Example:  `ctx status`,
 	},
+	"accessed": {
+		Priority: 43,
+		Example:  `ctx accessed --type explicit_query --since 2026-04-01 --limit 20`,
+		Notes:    "shows access history (hook_inject|explicit_query|get|graph_walk); --node prefix; --all-agents to opt out of agent scope",
+	},
 
 	// Views
 	"view create": {
@@ -284,6 +289,9 @@ var FlagRegistry = map[string]FlagMeta{
 	},
 	"compose.template": {
 		EnumValues: []string{"default", "document"},
+	},
+	"accessed.type": {
+		EnumValues: []string{"hook_inject", "explicit_query", "get", "graph_walk"},
 	},
 	"doc promote.type": {
 		EnumValues: []string{"fact", "decision", "pattern", "observation", "hypothesis", "task", "summary", "source", "open-question"},
