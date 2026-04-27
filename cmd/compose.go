@@ -76,6 +76,17 @@ func runCompose(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	composeCtx := "compose"
+	switch {
+	case composeIDs != "":
+		composeCtx = "compose:ids"
+	case composeSeed != "":
+		composeCtx = "compose:seed:" + composeSeed
+	case composeQuery != "":
+		composeCtx = "compose:" + composeQuery
+	}
+	logAccessNodes(d, result.Nodes, "explicit_query", composeCtx)
+
 	// If a template is specified, use template rendering
 	if composeTemplate != "" {
 		fmt.Print(view.RenderTemplate(result, composeTemplate))

@@ -44,6 +44,8 @@ func runShow(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("node %s is not accessible to the current agent scope", id)
 	}
 
+	_ = d.LogAccess(node.ID, "get", agent, "show:"+args[0])
+
 	switch format {
 	case "json":
 		out := map[string]interface{}{

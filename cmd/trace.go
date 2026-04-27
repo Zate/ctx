@@ -89,6 +89,14 @@ func runTrace(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if len(results) > 0 {
+		ids := make([]string, len(results))
+		for i, r := range results {
+			ids[i] = r.ID
+		}
+		_ = d.LogAccessBatch(ids, "graph_walk", agent, "trace:"+args[0])
+	}
+
 	switch format {
 	case "json":
 		data, _ := json.MarshalIndent(results, "", "  ")

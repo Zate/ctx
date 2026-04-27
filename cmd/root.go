@@ -144,3 +144,16 @@ func agentTag() string {
 func filterNodesByAgent(nodes []*db.Node) []*db.Node {
 	return agentpkg.FilterNodes(nodes, agent)
 }
+
+// logAccessNodes records access for the given nodes using LogAccessBatch.
+// Errors are swallowed; the DB-layer kind='memory' guard handles non-memory IDs.
+func logAccessNodes(d db.Store, nodes []*db.Node, accessType, queryContext string) {
+	if len(nodes) == 0 {
+		return
+	}
+	ids := make([]string, len(nodes))
+	for i, n := range nodes {
+		ids[i] = n.ID
+	}
+	_ = d.LogAccessBatch(ids, accessType, agent, queryContext)
+}

@@ -60,6 +60,8 @@ func runList(cmd *cobra.Command, args []string) error {
 	// Filter by agent partition
 	nodes = filterNodesByAgent(nodes)
 
+	logAccessNodes(d, nodes, "explicit_query", "list")
+
 	switch format {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")

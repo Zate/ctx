@@ -37,6 +37,8 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	// Filter by agent partition
 	nodes = filterNodesByAgent(nodes)
 
+	logAccessNodes(d, nodes, "explicit_query", "query:"+args[0])
+
 	switch format {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")
