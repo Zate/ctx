@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	doccmd "github.com/zate/ctx/cmd/doc"
 	graphcmd "github.com/zate/ctx/cmd/graph"
 	"github.com/zate/ctx/cmd/hook"
 	iocmd "github.com/zate/ctx/cmd/io"
@@ -17,7 +17,6 @@ import (
 	tagcmd "github.com/zate/ctx/cmd/tag"
 	viewcmd "github.com/zate/ctx/cmd/view"
 	"github.com/zate/ctx/internal/agenthelp"
-	"github.com/zate/ctx/internal/db"
 )
 
 var (
@@ -63,6 +62,7 @@ func init() {
 	nodecmd.Register(rootCmd)
 	viewcmd.Register(rootCmd)
 	systemcmd.Register(rootCmd)
+	doccmd.Register(rootCmd)
 }
 
 func Execute() error {
@@ -120,23 +120,4 @@ func isGlobalFlag(arg string) (skip bool, consumesNext bool) {
 		}
 	}
 	return false, false
-}
-
-func openDB() (db.Store, error) {
-	switch backend {
-	case "postgres", "postgresql":
-		d, err := db.OpenPostgres(dbPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open postgres database: %w", err)
-		}
-		return d, nil
-	case "sqlite", "":
-		d, err := db.Open(dbPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open database: %w", err)
-		}
-		return d, nil
-	default:
-		return nil, fmt.Errorf("unknown backend %q: use 'sqlite' or 'postgres'", backend)
-	}
 }

@@ -1,4 +1,4 @@
-package cmd
+package doc
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/doc"
 )
 
@@ -211,7 +212,7 @@ Flags:
 }
 
 func init() {
-	rootCmd.AddCommand(docCmd)
+
 	docCmd.AddCommand(docImportCmd)
 	docCmd.AddCommand(docExportCmd)
 	docCmd.AddCommand(docShowCmd)
@@ -278,7 +279,7 @@ func runDocImport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc import: decompose: %w", err)
 	}
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -313,7 +314,7 @@ func runDocImport(cmd *cobra.Command, args []string) error {
 func runDocExport(cmd *cobra.Command, args []string) error {
 	docID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -342,7 +343,7 @@ func runDocExport(cmd *cobra.Command, args []string) error {
 func runDocShow(cmd *cobra.Command, args []string) error {
 	docID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -374,7 +375,7 @@ func runDocShow(cmd *cobra.Command, args []string) error {
 func runDocVerify(cmd *cobra.Command, args []string) error {
 	docID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -430,7 +431,7 @@ func firstDiffOffset(a, b []byte) int {
 func runDocScaffold(cmd *cobra.Command, args []string) error {
 	docID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -460,7 +461,7 @@ func runDocApply(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc apply: parse scaffold: %w", err)
 	}
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -477,7 +478,7 @@ func runDocApply(cmd *cobra.Command, args []string) error {
 func runDocSearch(cmd *cobra.Command, args []string) error {
 	query := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -488,7 +489,7 @@ func runDocSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc search: %w", err)
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")
 		fmt.Println(string(data))
@@ -516,7 +517,7 @@ func runDocSearch(cmd *cobra.Command, args []string) error {
 func runDocMv(cmd *cobra.Command, args []string) error {
 	nodeID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -533,7 +534,7 @@ func runDocMv(cmd *cobra.Command, args []string) error {
 func runDocInsert(cmd *cobra.Command, args []string) error {
 	nodeID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -556,7 +557,7 @@ func runDocInsert(cmd *cobra.Command, args []string) error {
 func runDocRemove(cmd *cobra.Command, args []string) error {
 	nodeID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -577,7 +578,7 @@ func runDocRemove(cmd *cobra.Command, args []string) error {
 func runDocFork(cmd *cobra.Command, args []string) error {
 	docID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -595,7 +596,7 @@ func runDocFork(cmd *cobra.Command, args []string) error {
 func runDocSplit(cmd *cobra.Command, args []string) error {
 	nodeID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -620,7 +621,7 @@ func runDocPromote(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc promote: --into-memory flag is required to confirm promotion (this flag prevents accidental promotions)")
 	}
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -641,7 +642,7 @@ func runDocPromote(cmd *cobra.Command, args []string) error {
 func runDocInline(cmd *cobra.Command, args []string) error {
 	docID := args[0]
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
