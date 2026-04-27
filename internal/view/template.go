@@ -118,10 +118,6 @@ func renderDocumentTemplate(result *ComposeResult) string {
 func buildNodeLabels(nodes []*db.Node) map[string]string {
 	labels := make(map[string]string, len(nodes))
 	for _, n := range nodes {
-		preview := n.Content
-		if len(preview) > 30 {
-			preview = preview[:30] + "..."
-		}
 		labels[n.ID] = fmt.Sprintf("%s:%s", n.Type, n.ID)
 	}
 	return labels

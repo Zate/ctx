@@ -63,11 +63,11 @@ type UpdateNodeInput struct {
 }
 
 type ListOptions struct {
-	Type    string
-	Tag     string   // Deprecated: use Tags for multi-tag filtering
-	Tags    []string // Filter by multiple tags (AND logic)
-	Since   *time.Time
-	Limit   int
+	Type              string
+	Tag               string   // Deprecated: use Tags for multi-tag filtering
+	Tags              []string // Filter by multiple tags (AND logic)
+	Since             *time.Time
+	Limit             int
 	IncludeSuperseded bool
 }
 

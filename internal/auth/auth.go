@@ -173,7 +173,7 @@ func generateUserCode() string {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
 	letters := "ABCDEFGHJKLMNPQRSTUVWXYZ" // no I, O to avoid confusion
-	digits := "23456789"                    // no 0, 1 to avoid confusion
+	digits := "23456789"                  // no 0, 1 to avoid confusion
 
 	return fmt.Sprintf("%c%c%c%c-%c%c%c%c",
 		letters[b[0]%byte(len(letters))],

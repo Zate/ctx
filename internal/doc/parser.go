@@ -58,7 +58,8 @@ func Decompose(src []byte) (*DocTree, error) {
 	}
 	var headings []headingInfo
 
-	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+	// The walk callback never returns an error, so ast.Walk cannot fail here.
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}

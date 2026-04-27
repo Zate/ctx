@@ -1,0 +1,45 @@
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags:
+    - integration
+
+linters:
+  default: none
+  enable:
+    - errcheck      # unchecked errors
+    - govet         # suspicious constructs
+    - ineffassign   # ineffective assignments
+    - staticcheck   # broad correctness + style
+    - unused        # unused identifiers
+    - misspell      # common misspellings
+    - gofmt         # formatting
+    - goimports     # import grouping
+
+  settings:
+    errcheck:
+      # Don't fail on Close() / fmt.Fprintf to stdout / etc.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Tests can be looser with errcheck and unused.
+    - path: _test\.go
+      linters:
+        - errcheck
+        - unused
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

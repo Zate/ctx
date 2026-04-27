@@ -135,4 +135,3 @@ func runStop(cmd *cobra.Command, args []string) error {
 	fmt.Println("{}")
 	return nil
 }
-

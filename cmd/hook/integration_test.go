@@ -20,10 +20,10 @@ import (
 // It shells out to the ctx binary so that stdin/stdout work exactly as they do
 // in production (the hooks read os.Stdin directly, not cobra's InOrStdin).
 type hookHarness struct {
-	t      *testing.T
-	dbPath string
+	t       *testing.T
+	dbPath  string
 	binPath string
-	tmpDir string
+	tmpDir  string
 }
 
 func newHookHarness(t *testing.T) *hookHarness {
@@ -277,7 +277,7 @@ func TestIntegration_FullSessionLifecycle(t *testing.T) {
 	transcript := h.writeTranscriptFile([]map[string]any{
 		userEntry("Hello"),
 		assistantEntry(
-			"Let me store this fact.\n\n"+
+			"Let me store this fact.\n\n" +
 				`<ctx:remember type="fact" tags="tier:pinned">Always run tests.</ctx:remember>`,
 		),
 	})
@@ -530,11 +530,11 @@ func TestIntegration_CommandsInCodeBlocks_Ignored(t *testing.T) {
 	transcript := h.writeTranscriptFile([]map[string]any{
 		userEntry("Show me how to use ctx"),
 		assistantEntry(
-			"Here's how to store a fact:\n\n"+
-				"```xml\n"+
-				`<ctx:remember type="fact" tags="tier:pinned">This is inside a code block.</ctx:remember>`+"\n"+
-				"```\n\n"+
-				"And here's a real one:\n\n"+
+			"Here's how to store a fact:\n\n" +
+				"```xml\n" +
+				`<ctx:remember type="fact" tags="tier:pinned">This is inside a code block.</ctx:remember>` + "\n" +
+				"```\n\n" +
+				"And here's a real one:\n\n" +
 				`<ctx:remember type="fact" tags="tier:pinned">This is real.</ctx:remember>`,
 		),
 	})
@@ -557,8 +557,8 @@ func TestIntegration_MultipleCommandsInOneResponse(t *testing.T) {
 	transcript := h.writeTranscriptFile([]map[string]any{
 		userEntry("Store several things"),
 		assistantEntry(
-			`<ctx:remember type="fact" tags="tier:pinned">Fact A.</ctx:remember>`+"\n"+
-				`<ctx:remember type="decision" tags="tier:reference">Decision B.</ctx:remember>`+"\n"+
+			`<ctx:remember type="fact" tags="tier:pinned">Fact A.</ctx:remember>` + "\n" +
+				`<ctx:remember type="decision" tags="tier:reference">Decision B.</ctx:remember>` + "\n" +
 				`<ctx:remember type="observation" tags="tier:working">Observation C.</ctx:remember>`,
 		),
 	})
@@ -644,8 +644,8 @@ func TestIntegration_RealTranscriptFormat(t *testing.T) {
 		userEntry("Tell me about the project"),
 
 		assistantEntry(
-			"Here's what I found.\n\n"+
-				`<ctx:remember type="decision" tags="tier:pinned,project:Book">Creative direction established.</ctx:remember>`+"\n\n"+
+			"Here's what I found.\n\n" +
+				`<ctx:remember type="decision" tags="tier:pinned,project:Book">Creative direction established.</ctx:remember>` + "\n\n" +
 				`<ctx:remember type="fact" tags="tier:reference,project:Book">Research docs completed.</ctx:remember>`,
 		),
 
@@ -655,7 +655,7 @@ func TestIntegration_RealTranscriptFormat(t *testing.T) {
 		userEntry("Continue"),
 
 		assistantEntry(
-			"Here's more.\n\n"+
+			"Here's more.\n\n" +
 				`<ctx:remember type="observation" tags="tier:working,project:Book">Session was productive.</ctx:remember>`,
 		),
 
@@ -707,7 +707,7 @@ func TestIntegration_NyxStopBug_StdinConsumed(t *testing.T) {
 	h.appendTranscriptEntries(transcript, []map[string]any{
 		userEntry("Wrap up"),
 		assistantEntry(
-			`<ctx:remember type="decision" tags="tier:pinned,project:Book">Final session summary.</ctx:remember>`+"\n"+
+			`<ctx:remember type="decision" tags="tier:pinned,project:Book">Final session summary.</ctx:remember>` + "\n" +
 				`<ctx:remember type="fact" tags="tier:pinned,project:Book">Key research finding.</ctx:remember>`,
 		),
 	})

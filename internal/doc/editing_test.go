@@ -558,4 +558,3 @@ func TestSplit_OriginalBodyUnchangedInNodes(t *testing.T) {
 		assert.NotEmpty(t, body, "split sibling must have a non-empty body")
 	}
 }
-

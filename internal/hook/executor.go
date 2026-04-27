@@ -258,7 +258,6 @@ func executeStatus(d db.Store) error {
 	return d.SetPending("status_output", status)
 }
 
-
 func executeTask(d db.Store, cmd CtxCommand) error {
 	name := cmd.Attrs["name"]
 	action := cmd.Attrs["action"]

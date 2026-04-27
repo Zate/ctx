@@ -292,4 +292,3 @@ func detectProjectTag() string {
 func newGitCmd(args ...string) *exec.Cmd {
 	return exec.Command("git", args...)
 }
-

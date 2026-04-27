@@ -17,15 +17,15 @@ type ComposeOptions struct {
 	SeedID                string   // If set, start from this node and traverse edges
 	Depth                 int      // Traversal depth for seed mode (default 1)
 	Budget                int
-	Project               string   // If set, filter out nodes scoped to other projects
-	Agent                 string   // If set, filter to agent-scoped + global nodes
-	IncludeReferenceStats bool     // If true, count available tier:reference nodes
-	IncludeEdges          bool     // If true, fetch and include edges between composed nodes
+	Project               string // If set, filter out nodes scoped to other projects
+	Agent                 string // If set, filter to agent-scoped + global nodes
+	IncludeReferenceStats bool   // If true, count available tier:reference nodes
+	IncludeEdges          bool   // If true, fetch and include edges between composed nodes
 }
 
 type ComposeResult struct {
 	Nodes             []*db.Node
-	Edges             []*db.Edge     // Edges between composed nodes (if IncludeEdges)
+	Edges             []*db.Edge // Edges between composed nodes (if IncludeEdges)
 	TotalTokens       int
 	NodeCount         int
 	RenderedAt        time.Time
@@ -344,10 +344,6 @@ func RenderMarkdown(result *ComposeResult) string {
 		// Build ID-to-short-label map
 		nodeLabels := make(map[string]string, len(result.Nodes))
 		for _, n := range result.Nodes {
-			label := n.Content
-			if len(label) > 40 {
-				label = label[:40] + "..."
-			}
 			nodeLabels[n.ID] = fmt.Sprintf("[%s:%s]", n.Type, n.ID)
 		}
 

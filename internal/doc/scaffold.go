@@ -39,9 +39,9 @@ type Scaffold struct {
 
 // xmlDoc is the wire format for XML marshal/unmarshal.
 type xmlDoc struct {
-	XMLName  xml.Name       `xml:"doc"`
-	ID       string         `xml:"id,attr"`
-	Children []*xmlDocNode  `xml:"node"`
+	XMLName  xml.Name      `xml:"doc"`
+	ID       string        `xml:"id,attr"`
+	Children []*xmlDocNode `xml:"node"`
 }
 
 type xmlDocNode struct {
@@ -348,4 +348,3 @@ func SearchContent(query string, limit int, store db.Store) ([]*db.Node, error) 
 	}
 	return nodes, nil
 }
-

@@ -7,21 +7,38 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
 
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - name: Run tests
-        run: go test -v ./...
+      - name: Unit tests
+        run: go test -race ./...
+
+      - name: Integration tests
+        run: go test -race -tags=integration ./...
 
   build:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [lint, test]
     strategy:
       matrix:
         goos: [linux, darwin, windows]
@@ -31,7 +48,6 @@ jobs:
             goarch: arm64
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod

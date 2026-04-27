@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/hook"
 	agentpkg "github.com/zate/ctx/internal/agent"
 	"github.com/zate/ctx/internal/agenthelp"
-	"github.com/zate/ctx/cmd/hook"
 	"github.com/zate/ctx/internal/db"
 )
 

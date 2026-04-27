@@ -302,7 +302,6 @@ func (d *PostgresStore) ListNodes(opts ListOptions) ([]*Node, error) {
 	if opts.Since != nil {
 		conditions = append(conditions, fmt.Sprintf("n.created_at >= $%d", argIdx))
 		args = append(args, opts.Since.UTC().Format(time.RFC3339))
-		argIdx++
 	}
 
 	if len(conditions) > 0 {

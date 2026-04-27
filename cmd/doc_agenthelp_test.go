@@ -184,8 +184,8 @@ func TestDocAgentHelp_WithMetadata(t *testing.T) {
 	defer func() { agenthelp.Registry = origRegistry }()
 
 	agenthelp.Registry["doc import"] = agenthelp.CommandMeta{
-		Example: `ctx doc import README.md`,
-		Notes:   "byte-identity verified on import; rolls back on mismatch",
+		Example:  `ctx doc import README.md`,
+		Notes:    "byte-identity verified on import; rolls back on mismatch",
 		Priority: 200,
 	}
 

@@ -8,7 +8,6 @@ package doc_test
 //     body verbatim.
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"strings"
 	"testing"
@@ -21,7 +20,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 6.1 PromoteNode tests
+// PromoteNode tests
 // ---------------------------------------------------------------------------
 
 // TestPromote_KindChangesContentToMemory: PromoteNode changes kind from 'content'
@@ -194,7 +193,7 @@ func TestPromote_AllValidTypes(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.2 InlineNode tests
+// InlineNode tests
 // ---------------------------------------------------------------------------
 
 // TestInline_AddsContainsEdge: InlineNode creates a CONTAINS edge from docID
@@ -336,12 +335,4 @@ func TestInline_PositionOrdering(t *testing.T) {
 	assert.Equal(t, memNode.ID, allIDs[0], "inlined memory node must be at position 1")
 	assert.Equal(t, origIDs[0], allIDs[1])
 	assert.Equal(t, origIDs[1], allIDs[2])
-}
-
-// composeHashStr is a helper that computes sha256(compose(docID)) as a hex string.
-func composeHashStr(t *testing.T, docID string, store db.Store) string {
-	t.Helper()
-	composed, err := doc.ComposeDoc(docID, store)
-	require.NoError(t, err)
-	return fmt.Sprintf("%x", sha256.Sum256(composed))
 }
