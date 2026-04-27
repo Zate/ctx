@@ -1,4 +1,4 @@
-package cmd
+package view
 
 import (
 	"encoding/json"
@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/zate/ctx/internal/view"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
+	viewpkg "github.com/zate/ctx/internal/view"
 )
 
 var viewCmd = &cobra.Command{
@@ -62,11 +63,11 @@ func init() {
 	viewRenderCmd.Flags().IntVar(&viewBudget, "budget", 0, "Override budget")
 
 	viewCmd.AddCommand(viewCreateCmd, viewListCmd, viewRenderCmd, viewDeleteCmd)
-	rootCmd.AddCommand(viewCmd)
+	register(viewCmd)
 }
 
 func runViewCreate(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -84,7 +85,7 @@ func runViewCreate(cmd *cobra.Command, args []string) error {
 }
 
 func runViewList(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func runViewList(cmd *cobra.Command, args []string) error {
 		views = append(views, v)
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(views, "", "  ")
 		fmt.Println(string(data))
@@ -123,7 +124,7 @@ func runViewList(cmd *cobra.Command, args []string) error {
 }
 
 func runViewRender(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -140,7 +141,7 @@ func runViewRender(cmd *cobra.Command, args []string) error {
 		budget = viewBudget
 	}
 
-	result, err := view.Compose(d, view.ComposeOptions{
+	result, err := viewpkg.Compose(d, viewpkg.ComposeOptions{
 		Query:  q,
 		Budget: budget,
 	})
@@ -148,21 +149,21 @@ func runViewRender(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(result, "", "  ")
 		fmt.Println(string(data))
 	case "markdown":
-		fmt.Print(view.RenderMarkdown(result))
+		fmt.Print(viewpkg.RenderMarkdown(result))
 	default:
-		fmt.Print(view.RenderText(result))
+		fmt.Print(viewpkg.RenderText(result))
 	}
 
 	return nil
 }
 
 func runViewDelete(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}

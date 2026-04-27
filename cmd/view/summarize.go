@@ -1,10 +1,11 @@
-package cmd
+package view
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/db"
 )
 
@@ -24,11 +25,11 @@ func init() {
 	summarizeCmd.Flags().StringVar(&summarizeContent, "content", "", "Summary content (required)")
 	_ = summarizeCmd.MarkFlagRequired("content")
 	summarizeCmd.Flags().BoolVar(&archiveSources, "archive-sources", false, "Tag sources as tier:off-context")
-	rootCmd.AddCommand(summarizeCmd)
+	register(summarizeCmd)
 }
 
 func runSummarize(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -56,7 +57,7 @@ func runSummarize(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(summary, "", "  ")
 		fmt.Println(string(data))

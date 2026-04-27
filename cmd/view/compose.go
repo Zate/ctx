@@ -1,4 +1,4 @@
-package cmd
+package view
 
 import (
 	"encoding/json"
@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zate/ctx/internal/view"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
+	viewpkg "github.com/zate/ctx/internal/view"
 )
 
 var (
@@ -43,23 +44,23 @@ func init() {
 	composeCmd.Flags().StringVar(&composeSeed, "seed", "", "Seed node ID for graph traversal")
 	composeCmd.Flags().IntVar(&composeDepth, "depth", 1, "Traversal depth for seed mode")
 	composeCmd.Flags().StringVar(&composeProject, "project", "", "Project scope for filtering")
-	rootCmd.AddCommand(composeCmd)
+	register(composeCmd)
 }
 
 func runCompose(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	opts := view.ComposeOptions{
+	opts := viewpkg.ComposeOptions{
 		Query:        composeQuery,
 		Budget:       composeBudget,
 		IncludeEdges: composeEdges,
 		SeedID:       composeSeed,
 		Depth:        composeDepth,
-		Agent:        agent,
+		Agent:        cmdutil.Agent(cmd),
 		Project:      composeProject,
 	}
 
@@ -71,7 +72,7 @@ func runCompose(cmd *cobra.Command, args []string) error {
 		opts.IDs = ids
 	}
 
-	result, err := view.Compose(d, opts)
+	result, err := viewpkg.Compose(d, opts)
 	if err != nil {
 		return err
 	}
@@ -85,22 +86,22 @@ func runCompose(cmd *cobra.Command, args []string) error {
 	case composeQuery != "":
 		composeCtx = "compose:" + composeQuery
 	}
-	logAccessNodes(d, result.Nodes, "explicit_query", composeCtx)
+	cmdutil.LogAccessNodes(cmd, d, result.Nodes, "explicit_query", composeCtx)
 
 	// If a template is specified, use template rendering
 	if composeTemplate != "" {
-		fmt.Print(view.RenderTemplate(result, composeTemplate))
+		fmt.Print(viewpkg.RenderTemplate(result, composeTemplate))
 		return nil
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(result, "", "  ")
 		fmt.Println(string(data))
 	case "markdown":
-		fmt.Print(view.RenderMarkdown(result))
+		fmt.Print(viewpkg.RenderMarkdown(result))
 	default:
-		fmt.Print(view.RenderText(result))
+		fmt.Print(viewpkg.RenderText(result))
 	}
 
 	return nil

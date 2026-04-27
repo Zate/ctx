@@ -59,15 +59,6 @@ func setupCLI(t *testing.T) {
 	agent = ""
 	backend = "sqlite"
 
-	composeQuery = ""
-	composeBudget = 50000
-	composeIDs = ""
-	composeEdges = false
-	composeTemplate = ""
-	composeSeed = ""
-	composeDepth = 1
-	composeProject = ""
-
 	// Run migrations once so the DB is ready.
 	d, err := db.Open(dbPath)
 	require.NoError(t, err)
