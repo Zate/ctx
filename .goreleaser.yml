@@ -39,4 +39,4 @@ changelog:
 release:
   github:
     owner: Zate
-    name: Memdown
+    name: ctx
