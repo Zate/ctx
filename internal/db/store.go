@@ -38,6 +38,15 @@ type Store interface {
 	ListTagsByPrefix(prefix string) ([]string, error)
 	GetNodesByTag(tag string) ([]*Node, error)
 
+	// --- Access log operations ---
+	// LogAccess and LogAccessBatch silently no-op for non-memory nodes
+	// (kind!='memory') and unknown IDs; the kind='memory' guard is enforced
+	// at the DB layer so call sites do not need to filter.
+
+	LogAccess(nodeID, accessType, agent, queryContext string) error
+	LogAccessBatch(nodeIDs []string, accessType, agent, queryContext string) error
+	QueryAccess(opts AccessLogQuery) ([]*AccessEntry, error)
+
 	// --- Pending operations ---
 
 	SetPending(key, value string) error
