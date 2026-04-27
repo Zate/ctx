@@ -58,7 +58,7 @@ func (d *PostgresStore) LogAccessBatch(nodeIDs []string, accessType, agent, quer
 // QueryAccess (Postgres).
 func (d *PostgresStore) QueryAccess(opts AccessLogQuery) ([]*AccessEntry, error) {
 	var sb strings.Builder
-	sb.WriteString(`SELECT id, node_id, accessed_at, agent, access_type, query_context FROM access_log WHERE 1=1`)
+	sb.WriteString(`SELECT id, node_id, accessed_at, agent, access_type, query_context FROM access_log WHERE EXISTS (SELECT 1 FROM nodes WHERE nodes.id = access_log.node_id AND nodes.kind = 'memory')`)
 	var args []interface{}
 	n := 0
 	next := func() string {

@@ -93,7 +93,8 @@ func (d *SQLiteStore) LogAccessBatch(nodeIDs []string, accessType, agent, queryC
 
 // QueryAccess returns access log entries matching opts, newest first.
 func (d *SQLiteStore) QueryAccess(opts AccessLogQuery) ([]*AccessEntry, error) {
-	q := `SELECT id, node_id, accessed_at, agent, access_type, query_context FROM access_log WHERE 1=1`
+	q := `SELECT id, node_id, accessed_at, agent, access_type, query_context FROM access_log
+		WHERE EXISTS (SELECT 1 FROM nodes WHERE nodes.id = access_log.node_id AND nodes.kind = 'memory')`
 	var args []interface{}
 
 	if opts.NodeIDPrefix != "" {
