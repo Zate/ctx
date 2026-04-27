@@ -239,6 +239,23 @@ var migrations = []struct {
 		// Rebuild FTS index to include only kind='memory' rows
 		`INSERT INTO nodes_fts(nodes_fts) VALUES('rebuild')`,
 	}},
+	{6, []string{
+		// Add access logging table for tracking node usage patterns.
+		// Mirrors Nyx's schema; uses TEXT for accessed_at for cross-backend parity.
+		`CREATE TABLE IF NOT EXISTS access_log (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			node_id TEXT NOT NULL,
+			accessed_at TEXT NOT NULL,
+			agent TEXT NOT NULL DEFAULT '',
+			access_type TEXT NOT NULL,
+			query_context TEXT NOT NULL DEFAULT '',
+			FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_access_log_node ON access_log(node_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_access_log_type ON access_log(access_type)`,
+		`CREATE INDEX IF NOT EXISTS idx_access_log_time ON access_log(accessed_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_access_log_agent ON access_log(agent)`,
+	}},
 }
 
 func (d *SQLiteStore) migrate() error {

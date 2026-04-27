@@ -712,6 +712,24 @@ var postgresMigrations = []struct {
 		ALTER TABLE nodes ADD COLUMN IF NOT EXISTS sync_version BIGINT DEFAULT 0;
 		ALTER TABLE nodes ADD COLUMN IF NOT EXISTS origin_device TEXT;
 	`},
+	{6, `
+		-- Access logging table (parallel to SQLite v6).
+		-- TEXT for accessed_at preserves cross-backend parity.
+		CREATE TABLE IF NOT EXISTS access_log (
+			id BIGSERIAL PRIMARY KEY,
+			node_id TEXT NOT NULL,
+			accessed_at TEXT NOT NULL,
+			agent TEXT NOT NULL DEFAULT '',
+			access_type TEXT NOT NULL,
+			query_context TEXT NOT NULL DEFAULT '',
+			FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_access_log_node ON access_log(node_id);
+		CREATE INDEX IF NOT EXISTS idx_access_log_type ON access_log(access_type);
+		CREATE INDEX IF NOT EXISTS idx_access_log_time ON access_log(accessed_at);
+		CREATE INDEX IF NOT EXISTS idx_access_log_agent ON access_log(agent);
+	`},
 }
 
 func (d *PostgresStore) migrate() error {
