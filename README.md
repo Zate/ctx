@@ -369,16 +369,16 @@ Releases are automated via GoReleaser on tagged commits.
 ## Development
 
 ```bash
-# Run all tests
+# Fast unit tests (default)
 make test
 
-# Unit tests only
-make test-unit
+# Add integration tests that exec the built binary
+make test-integration
 
 # Fuzz testing (query parser)
 make test-fuzz
 
-# Coverage report
+# Coverage report (includes integration)
 make test-coverage
 
 # Build

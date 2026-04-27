@@ -81,11 +81,15 @@ Retrieval surfaces (`show`, `query`, `search`, `list`, `compose`, `related`, `tr
 ## Testing
 
 ```bash
-make test          # All tests — run before committing
-make test-unit     # internal/ packages only
-make test-fuzz     # Fuzz the query parser (30s default)
-make test-coverage # Coverage report
+make test              # Fast unit tests — run before committing
+make test-integration  # Adds tests that exec the built binary
+make test-fuzz         # Fuzz the query parser (30s default)
+make test-coverage     # Coverage report (includes integration)
 ```
+
+Tests that shell out to a built `ctx` binary (currently the hook lifecycle
+suite and the `--agent-help` end-to-end test) live behind the `integration`
+build tag so the default loop stays fast.
 
 Tests use temporary databases via `testutil.NewTestDB()`. No cleanup needed.
 
