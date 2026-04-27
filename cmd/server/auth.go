@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"bytes"
@@ -51,7 +51,7 @@ func init() {
 	authCmd.Flags().StringVar(&authDeviceName, "device-name", hostname, "Name for this device")
 	authCmd.AddCommand(authStatusCmd)
 	authCmd.AddCommand(authLogoutCmd)
-	rootCmd.AddCommand(authCmd)
+	register(authCmd)
 }
 
 func runAuth(cmd *cobra.Command, args []string) error {

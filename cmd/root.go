@@ -8,6 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/hook"
+	mcpcmd "github.com/zate/ctx/cmd/mcp"
+	servercmd "github.com/zate/ctx/cmd/server"
 	agentpkg "github.com/zate/ctx/internal/agent"
 	"github.com/zate/ctx/internal/agenthelp"
 	"github.com/zate/ctx/internal/db"
@@ -48,6 +50,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&agentHelp, "agent-help", false, "Token-optimized help for LLM agents")
 	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + "\nLLM agent? Use --agent-help for token-optimized usage.\n")
 	rootCmd.AddCommand(hook.HookCmd)
+	mcpcmd.Register(rootCmd)
+	servercmd.Register(rootCmd)
 }
 
 func Execute() error {

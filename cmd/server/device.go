@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ var deviceRevokeCmd = &cobra.Command{
 func init() {
 	deviceCmd.AddCommand(deviceListCmd)
 	deviceCmd.AddCommand(deviceRevokeCmd)
-	rootCmd.AddCommand(deviceCmd)
+	register(deviceCmd)
 }
 
 func runDeviceList(cmd *cobra.Command, args []string) error {

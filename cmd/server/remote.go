@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"encoding/json"
@@ -45,7 +45,7 @@ func init() {
 	remoteCmd.AddCommand(remoteSetCmd)
 	remoteCmd.AddCommand(remoteShowCmd)
 	remoteCmd.AddCommand(remoteRemoveCmd)
-	rootCmd.AddCommand(remoteCmd)
+	register(remoteCmd)
 }
 
 func runRemoteSet(cmd *cobra.Command, args []string) error {

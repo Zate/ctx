@@ -1,9 +1,10 @@
-package cmd
+package server
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/db"
 	"github.com/zate/ctx/internal/server"
 )
@@ -39,7 +40,7 @@ func init() {
 	serveCmd.Flags().StringVar(&serveTLSKey, "tls-key", "", "TLS key file path")
 	serveCmd.Flags().StringVar(&serveDBUrl, "db-url", "", "PostgreSQL connection string (e.g. postgres://user:pass@host:5432/dbname)")
 	serveCmd.Flags().StringVar(&serveAdminPassword, "admin-password", "", "Admin password for device approval (enables auth)")
-	rootCmd.AddCommand(serveCmd)
+	register(serveCmd)
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
@@ -76,7 +77,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// Fall back to the global --db / --backend flags
-		store, err = openDB()
+		store, err = cmdutil.OpenDB(cmd)
 		if err != nil {
 			return err
 		}

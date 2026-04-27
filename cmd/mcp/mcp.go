@@ -1,4 +1,6 @@
-package cmd
+// Package mcp implements the `ctx mcp` subcommand: an MCP server exposing
+// ctx tools to Claude Desktop and other MCP clients.
+package mcp
 
 import (
 	"context"
@@ -15,17 +17,25 @@ import (
 	"github.com/zate/ctx/internal/view"
 )
 
+// dbPath is captured from the root --db flag in runMCP. Tests set it directly.
+var dbPath string
+
 var mcpCmd = &cobra.Command{
 	Use:   "mcp",
 	Short: "Run MCP server for Claude Desktop and other MCP clients",
 	RunE:  runMCP,
 }
 
-func init() {
-	rootCmd.AddCommand(mcpCmd)
+// Register adds the mcp command to the given root.
+func Register(root *cobra.Command) {
+	root.AddCommand(mcpCmd)
 }
 
 func runMCP(cmd *cobra.Command, args []string) error {
+	if f := cmd.Root().PersistentFlags().Lookup("db"); f != nil {
+		dbPath = f.Value.String()
+	}
+
 	s := server.NewMCPServer(
 		"ctx",
 		"1.0.0",

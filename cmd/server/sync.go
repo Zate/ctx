@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	ctxsync "github.com/zate/ctx/internal/sync"
 )
 
@@ -47,7 +48,7 @@ func init() {
 	syncCmd.AddCommand(syncPushCmd)
 	syncCmd.AddCommand(syncPullCmd)
 	syncCmd.AddCommand(syncRegisterRepoCmd)
-	rootCmd.AddCommand(syncCmd)
+	register(syncCmd)
 }
 
 func runSyncStatus(cmd *cobra.Command, args []string) error {
@@ -56,7 +57,7 @@ func runSyncStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not authenticated. Run 'ctx auth' first")
 	}
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -99,7 +100,7 @@ func runSyncPush(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not authenticated. Run 'ctx auth' first")
 	}
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -161,7 +162,7 @@ func runSyncPull(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not authenticated. Run 'ctx auth' first")
 	}
 
-	store, err := openDB()
+	store, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
