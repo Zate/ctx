@@ -8,10 +8,38 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zate/ctx/internal/db"
 )
+
+// resetCommandFlags walks every command under rootCmd and resets each
+// non-persistent local flag back to its default. Cobra parses flags into
+// bound vars but does not reset them between Execute() calls, so test
+// isolation requires this. Persistent root flags (--db, --format, --agent,
+// --backend) are intentionally skipped since the test fixture assigns
+// them directly via package-level vars.
+func resetCommandFlags() {
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		c.LocalFlags().VisitAll(func(f *pflag.Flag) {
+			// Slice flags require Replace([]string{}) — calling Set("")
+			// produces a slice with one empty element instead of clearing it.
+			if sv, ok := f.Value.(pflag.SliceValue); ok {
+				_ = sv.Replace(nil)
+			} else {
+				_ = f.Value.Set(f.DefValue)
+			}
+			f.Changed = false
+		})
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(rootCmd)
+}
 
 // These tests answer one question per command: does the thing the CLI
 // claims to do actually happen? They execute through Cobra (exactly the
@@ -21,25 +49,16 @@ import (
 // so prior test runs don't leak flag values.
 func setupCLI(t *testing.T) {
 	t.Helper()
+	// Reset flag-backed package vars so cobra re-parses cleanly. This must
+	// run before reassigning persistent flag vars (dbPath/format/agent/backend)
+	// since the reset walks the root flags and would otherwise clobber them.
+	resetCommandFlags()
+
 	dbPath = filepath.Join(t.TempDir(), "test.db")
 	format = "text"
 	agent = ""
 	backend = "sqlite"
 
-	// Reset flag-backed package vars so cobra re-parses cleanly.
-	listType = ""
-	listTags = nil
-	listSince = ""
-	listLimit = 0
-	addType = ""
-	addTags = nil
-	addMeta = nil
-	addStdin = false
-	updateContent = ""
-	updateType = ""
-	updateMeta = ""
-	showWithEdges = false
-	includeSuperseded = false
 	composeQuery = ""
 	composeBudget = 50000
 	composeIDs = ""

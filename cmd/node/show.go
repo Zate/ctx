@@ -1,10 +1,12 @@
-package cmd
+package node
 
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	agentpkg "github.com/zate/ctx/internal/agent"
 )
 
@@ -19,17 +21,17 @@ var showCmd = &cobra.Command{
 
 func init() {
 	showCmd.Flags().BoolVar(&showWithEdges, "with-edges", false, "Include edges")
-	rootCmd.AddCommand(showCmd)
+	register(showCmd)
 }
 
 func runShow(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	id, err := resolveArg(d, args[0])
+	id, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}
@@ -40,13 +42,13 @@ func runShow(cmd *cobra.Command, args []string) error {
 	}
 
 	// Agent guard: only allow showing nodes visible to the current agent
-	if !agentpkg.ShouldInclude(node, agent) {
+	if !agentpkg.ShouldInclude(node, cmdutil.Agent(cmd)) {
 		return fmt.Errorf("node %s is not accessible to the current agent scope", id)
 	}
 
-	_ = d.LogAccess(node.ID, "get", agent, "show:"+args[0])
+	_ = d.LogAccess(node.ID, "get", cmdutil.Agent(cmd), "show:"+args[0])
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		out := map[string]interface{}{
 			"id":             node.ID,
@@ -78,7 +80,7 @@ func runShow(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Created: %s\n", node.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Updated: %s\n", node.UpdatedAt.Format("2006-01-02 15:04:05"))
 		if len(node.Tags) > 0 {
-			fmt.Printf("Tags:    %s\n", joinStrings(node.Tags, ", "))
+			fmt.Printf("Tags:    %s\n", strings.Join(node.Tags, ", "))
 		}
 		if node.Summary != nil {
 			fmt.Printf("Summary: %s\n", *node.Summary)

@@ -1,10 +1,11 @@
-package cmd
+package node
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var searchCmd = &cobra.Command{
@@ -15,11 +16,11 @@ var searchCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(searchCmd)
+	register(searchCmd)
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -31,11 +32,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	}
 
 	// Filter by agent partition
-	nodes = filterNodesByAgent(nodes)
+	nodes = cmdutil.FilterNodesByAgent(cmd, nodes)
 
-	logAccessNodes(d, nodes, "explicit_query", "search:"+args[0])
+	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "search:"+args[0])
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")
 		fmt.Println(string(data))

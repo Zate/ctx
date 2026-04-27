@@ -1,10 +1,12 @@
-package cmd
+package node
 
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/query"
 )
 
@@ -19,11 +21,11 @@ var queryCmd = &cobra.Command{
 
 func init() {
 	queryCmd.Flags().BoolVar(&includeSuperseded, "include-superseded", false, "Include superseded nodes")
-	rootCmd.AddCommand(queryCmd)
+	register(queryCmd)
 }
 
 func runQuery(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -35,11 +37,11 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	}
 
 	// Filter by agent partition
-	nodes = filterNodesByAgent(nodes)
+	nodes = cmdutil.FilterNodesByAgent(cmd, nodes)
 
-	logAccessNodes(d, nodes, "explicit_query", "query:"+args[0])
+	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "query:"+args[0])
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")
 		fmt.Println(string(data))
@@ -55,7 +57,7 @@ func runQuery(cmd *cobra.Command, args []string) error {
 			}
 			tags := ""
 			if len(n.Tags) > 0 {
-				tags = " [" + joinStrings(n.Tags, ", ") + "]"
+				tags = " [" + strings.Join(n.Tags, ", ") + "]"
 			}
 			fmt.Printf("[%s] %s: %s%s\n", n.ID, n.Type, preview, tags)
 		}

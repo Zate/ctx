@@ -11,6 +11,7 @@ import (
 	"github.com/zate/ctx/cmd/hook"
 	iocmd "github.com/zate/ctx/cmd/io"
 	mcpcmd "github.com/zate/ctx/cmd/mcp"
+	nodecmd "github.com/zate/ctx/cmd/node"
 	servercmd "github.com/zate/ctx/cmd/server"
 	tagcmd "github.com/zate/ctx/cmd/tag"
 	agentpkg "github.com/zate/ctx/internal/agent"
@@ -58,6 +59,7 @@ func init() {
 	graphcmd.Register(rootCmd)
 	tagcmd.Register(rootCmd)
 	iocmd.Register(rootCmd)
+	nodecmd.Register(rootCmd)
 }
 
 func Execute() error {

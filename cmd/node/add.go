@@ -1,4 +1,4 @@
-package cmd
+package node
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/db"
 )
 
@@ -30,11 +31,11 @@ func init() {
 	addCmd.Flags().StringArrayVar(&addTags, "tag", nil, "Tags (repeatable)")
 	addCmd.Flags().StringArrayVar(&addMeta, "meta", nil, "Metadata key=value (repeatable)")
 	addCmd.Flags().BoolVar(&addStdin, "stdin", false, "Read content from stdin")
-	rootCmd.AddCommand(addCmd)
+	register(addCmd)
 }
 
 func runAdd(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -67,7 +68,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Auto-add agent tag if --agent is set
-	if at := agentTag(); at != "" {
+	if at := cmdutil.AgentTag(cmd); at != "" {
 		addTags = append(addTags, at)
 	}
 
@@ -81,7 +82,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(node, "", "  ")
 		fmt.Println(string(data))

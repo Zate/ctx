@@ -1,9 +1,10 @@
-package cmd
+package node
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	agentpkg "github.com/zate/ctx/internal/agent"
 )
 
@@ -15,17 +16,17 @@ var deleteCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(deleteCmd)
+	register(deleteCmd)
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	id, err := resolveArg(d, args[0])
+	id, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}
@@ -35,7 +36,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if !agentpkg.ShouldInclude(node, agent) {
+	if !agentpkg.ShouldInclude(node, cmdutil.Agent(cmd)) {
 		return fmt.Errorf("node %s is not accessible to the current agent scope", id[:8])
 	}
 

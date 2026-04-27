@@ -1,11 +1,13 @@
-package cmd
+package node
 
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/db"
 )
 
@@ -27,11 +29,11 @@ func init() {
 	listCmd.Flags().StringArrayVar(&listTags, "tag", nil, "Filter by tag (repeatable, AND logic)")
 	listCmd.Flags().StringVar(&listSince, "since", "", "Filter by creation time (e.g. 1h, 24h, 7d)")
 	listCmd.Flags().IntVar(&listLimit, "limit", 0, "Limit results")
-	rootCmd.AddCommand(listCmd)
+	register(listCmd)
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -58,11 +60,11 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Filter by agent partition
-	nodes = filterNodesByAgent(nodes)
+	nodes = cmdutil.FilterNodesByAgent(cmd, nodes)
 
-	logAccessNodes(d, nodes, "explicit_query", "list")
+	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "list")
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")
 		fmt.Println(string(data))
@@ -78,7 +80,7 @@ func runList(cmd *cobra.Command, args []string) error {
 			}
 			tags := ""
 			if len(n.Tags) > 0 {
-				tags = " [" + joinStrings(n.Tags, ", ") + "]"
+				tags = " [" + strings.Join(n.Tags, ", ") + "]"
 			}
 			fmt.Printf("[%s] %s: %s%s\n", n.ID, n.Type, preview, tags)
 		}

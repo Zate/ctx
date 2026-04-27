@@ -1,10 +1,11 @@
-package cmd
+package node
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/db"
 )
 
@@ -25,11 +26,11 @@ func init() {
 	updateCmd.Flags().StringVar(&updateContent, "content", "", "New content")
 	updateCmd.Flags().StringVar(&updateType, "type", "", "New type")
 	updateCmd.Flags().StringVar(&updateMeta, "meta", "", "New metadata JSON")
-	rootCmd.AddCommand(updateCmd)
+	register(updateCmd)
 }
 
 func runUpdate(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -46,7 +47,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		input.Metadata = &updateMeta
 	}
 
-	id, err := resolveArg(d, args[0])
+	id, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}
@@ -56,7 +57,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(node, "", "  ")
 		fmt.Println(string(data))
