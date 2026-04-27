@@ -1,4 +1,4 @@
-package cmd
+package io
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/db"
 )
 
@@ -21,11 +22,11 @@ var ingestCmd = &cobra.Command{
 
 func init() {
 	ingestCmd.Flags().StringArrayVar(&ingestTags, "tag", nil, "Tags (repeatable)")
-	rootCmd.AddCommand(ingestCmd)
+	register(ingestCmd)
 }
 
 func runIngest(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -52,7 +53,7 @@ func runIngest(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(node, "", "  ")
 		fmt.Println(string(data))

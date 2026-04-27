@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	graphcmd "github.com/zate/ctx/cmd/graph"
 	"github.com/zate/ctx/cmd/hook"
+	iocmd "github.com/zate/ctx/cmd/io"
 	mcpcmd "github.com/zate/ctx/cmd/mcp"
 	servercmd "github.com/zate/ctx/cmd/server"
 	tagcmd "github.com/zate/ctx/cmd/tag"
@@ -56,6 +57,7 @@ func init() {
 	servercmd.Register(rootCmd)
 	graphcmd.Register(rootCmd)
 	tagcmd.Register(rootCmd)
+	iocmd.Register(rootCmd)
 }
 
 func Execute() error {

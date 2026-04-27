@@ -1,4 +1,4 @@
-package cmd
+package io
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var importMerge bool
@@ -20,11 +21,11 @@ var importCmd = &cobra.Command{
 
 func init() {
 	importCmd.Flags().BoolVar(&importMerge, "merge", false, "Skip conflicts instead of failing")
-	rootCmd.AddCommand(importCmd)
+	register(importCmd)
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}

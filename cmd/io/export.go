@@ -1,10 +1,11 @@
-package cmd
+package io
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/db"
 	"github.com/zate/ctx/internal/query"
 )
@@ -19,7 +20,7 @@ var exportCmd = &cobra.Command{
 
 func init() {
 	exportCmd.Flags().StringVar(&exportQuery, "query", "", "Filter by query")
-	rootCmd.AddCommand(exportCmd)
+	register(exportCmd)
 }
 
 type exportData struct {
@@ -34,7 +35,7 @@ type tagEntry struct {
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -51,7 +52,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Filter by agent partition
-	nodes = filterNodesByAgent(nodes)
+	nodes = cmdutil.FilterNodesByAgent(cmd, nodes)
 
 	// Get all edges for exported nodes
 	nodeIDs := map[string]bool{}
