@@ -10,15 +10,6 @@ import (
 	"github.com/zate/ctx/internal/db"
 )
 
-// resetAccessedFlags clears flag-backed package vars between tests.
-func resetAccessedFlags() {
-	accessedNode = ""
-	accessedType = ""
-	accessedSince = ""
-	accessedLimit = 50
-	accessedAllAgents = false
-}
-
 func seedAccessEntry(t *testing.T, nodeID, accessType, agent, ctx string) {
 	t.Helper()
 	d := openTestDB(t)
@@ -28,7 +19,6 @@ func seedAccessEntry(t *testing.T, nodeID, accessType, agent, ctx string) {
 // 4.1 text output renders columns
 func TestCLI_Accessed_TextOutput(t *testing.T) {
 	setupCLI(t)
-	resetAccessedFlags()
 	id := seedNode(t, "fact", "fact body")
 	seedAccessEntry(t, id, "get", "alice", "show:abc")
 
@@ -43,7 +33,6 @@ func TestCLI_Accessed_TextOutput(t *testing.T) {
 // 4.2 filters: --node prefix, --type, --since, --limit
 func TestCLI_Accessed_Filters(t *testing.T) {
 	setupCLI(t)
-	resetAccessedFlags()
 	id1 := seedNode(t, "fact", "a")
 	id2 := seedNode(t, "fact", "b")
 
@@ -52,27 +41,23 @@ func TestCLI_Accessed_Filters(t *testing.T) {
 	seedAccessEntry(t, id2, "explicit_query", "alice", "query:type:fact")
 
 	// --type filter
-	resetAccessedFlags()
 	out, err := runCLI(t, "accessed", "--all-agents", "--type", "get")
 	require.NoError(t, err)
 	assert.Contains(t, out, "get")
 	assert.NotContains(t, out, "explicit_query")
 
 	// --node prefix (use full id to avoid time-prefix collision in shortID display)
-	resetAccessedFlags()
 	out, err = runCLI(t, "accessed", "--all-agents", "--node", id2, "--type", "explicit_query")
 	require.NoError(t, err)
 	// only id2's explicit_query row
 	assert.Contains(t, out, "1 entries shown")
 
 	// --limit
-	resetAccessedFlags()
 	out, err = runCLI(t, "accessed", "--all-agents", "--limit", "1")
 	require.NoError(t, err)
 	assert.Contains(t, out, "1 entries shown")
 
 	// --since (future date filters everything out)
-	resetAccessedFlags()
 	out, err = runCLI(t, "accessed", "--all-agents", "--since", time.Now().Add(time.Hour).UTC().Format(time.RFC3339))
 	require.NoError(t, err)
 	assert.Contains(t, out, "No access entries found")
@@ -81,7 +66,6 @@ func TestCLI_Accessed_Filters(t *testing.T) {
 // 4.3 --json emits valid JSON
 func TestCLI_Accessed_JSON(t *testing.T) {
 	setupCLI(t)
-	resetAccessedFlags()
 	id := seedNode(t, "fact", "json target")
 	seedAccessEntry(t, id, "get", "alice", "show:x")
 
@@ -101,7 +85,6 @@ func TestCLI_Accessed_JSON(t *testing.T) {
 // 4.4 agent isolation: default scopes to --agent; --all-agents opts out
 func TestCLI_Accessed_AgentIsolation(t *testing.T) {
 	setupCLI(t)
-	resetAccessedFlags()
 	id := seedNode(t, "fact", "shared")
 	seedAccessEntry(t, id, "get", "alice", "show:a")
 	seedAccessEntry(t, id, "get", "bob", "show:b")
@@ -115,7 +98,6 @@ func TestCLI_Accessed_AgentIsolation(t *testing.T) {
 	assert.NotContains(t, out, "bob")
 
 	// --all-agents -> both
-	resetAccessedFlags()
 	out, err = runCLI(t, "accessed", "--all-agents")
 	require.NoError(t, err)
 	assert.Contains(t, out, "alice")
@@ -125,7 +107,6 @@ func TestCLI_Accessed_AgentIsolation(t *testing.T) {
 // 4.5 memory-only invariant: rows for non-memory nodes are not displayed
 func TestCLI_Accessed_HidesNonMemoryRows(t *testing.T) {
 	setupCLI(t)
-	resetAccessedFlags()
 	d := openTestDB(t)
 
 	// Memory node + access entry

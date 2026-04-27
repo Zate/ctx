@@ -1,32 +1,10 @@
 package cmd
 
-import (
-	"fmt"
+import systemcmd "github.com/zate/ctx/cmd/system"
 
-	"github.com/spf13/cobra"
-)
-
-var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
-)
-
-// SetVersionInfo is called from main to inject build-time values.
+// SetVersionInfo forwards build-time version info to the system subpackage
+// where the `version` command lives. main.go still calls cmd.SetVersionInfo
+// so the cmd/ public surface is unchanged.
 func SetVersionInfo(v, c, d string) {
-	version = v
-	commit = c
-	date = d
-}
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print ctx version",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("ctx %s (commit %s, built %s)\n", version, commit, date)
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
+	systemcmd.SetVersionInfo(v, c, d)
 }

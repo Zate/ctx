@@ -1,4 +1,4 @@
-package cmd
+package system
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	"github.com/zate/ctx/internal/db"
 )
 
@@ -39,11 +40,11 @@ func init() {
 	accessedCmd.Flags().StringVar(&accessedSince, "since", "", "Show entries after this RFC3339 timestamp")
 	accessedCmd.Flags().IntVar(&accessedLimit, "limit", 50, "Max entries to return")
 	accessedCmd.Flags().BoolVar(&accessedAllAgents, "all-agents", false, "Show entries from all agents (overrides --agent)")
-	rootCmd.AddCommand(accessedCmd)
+	register(accessedCmd)
 }
 
 func runAccessed(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -58,7 +59,7 @@ func runAccessed(cmd *cobra.Command, args []string) error {
 
 	entries, err := d.QueryAccess(db.AccessLogQuery{
 		NodeIDPrefix: prefix,
-		Agent:        agent,
+		Agent:        cmdutil.Agent(cmd),
 		AllAgents:    accessedAllAgents,
 		AccessType:   accessedType,
 		Since:        accessedSince,
@@ -68,7 +69,7 @@ func runAccessed(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if format == "json" {
+	if cmdutil.Format(cmd) == "json" {
 		if entries == nil {
 			entries = []*db.AccessEntry{}
 		}

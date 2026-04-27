@@ -1,4 +1,4 @@
-package cmd
+package system
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ var installCmd = &cobra.Command{
 
 func init() {
 	installCmd.Flags().BoolVar(&installMCP, "mcp", false, "Output MCP server configuration for Claude Desktop")
-	rootCmd.AddCommand(installCmd)
+	register(installCmd)
 }
 
 func runInstall(cmd *cobra.Command, args []string) error {

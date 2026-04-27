@@ -13,6 +13,7 @@ import (
 	mcpcmd "github.com/zate/ctx/cmd/mcp"
 	nodecmd "github.com/zate/ctx/cmd/node"
 	servercmd "github.com/zate/ctx/cmd/server"
+	systemcmd "github.com/zate/ctx/cmd/system"
 	tagcmd "github.com/zate/ctx/cmd/tag"
 	viewcmd "github.com/zate/ctx/cmd/view"
 	"github.com/zate/ctx/internal/agenthelp"
@@ -61,6 +62,7 @@ func init() {
 	iocmd.Register(rootCmd)
 	nodecmd.Register(rootCmd)
 	viewcmd.Register(rootCmd)
+	systemcmd.Register(rootCmd)
 }
 
 func Execute() error {

@@ -1,4 +1,4 @@
-package cmd
+package system
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var initCmd = &cobra.Command{
@@ -16,7 +17,7 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(initCmd)
+	register(initCmd)
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
@@ -30,7 +31,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create %s: %w", ctxDir, err)
 	}
 
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}

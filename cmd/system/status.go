@@ -1,4 +1,4 @@
-package cmd
+package system
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 	agentpkg "github.com/zate/ctx/internal/agent"
 )
 
@@ -16,25 +17,25 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(statusCmd)
+	register(statusCmd)
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
 	// Get file size
-	info, _ := os.Stat(dbPath)
+	info, _ := os.Stat(cmdutil.DBPath(cmd))
 	var fileSize int64
 	if info != nil {
 		fileSize = info.Size()
 	}
 
-	// Build agent filter SQL
-	af := agentpkg.FilterSQL(agent)
+	// Build cmdutil.Agent(cmd) filter SQL
+	af := agentpkg.FilterSQL(cmdutil.Agent(cmd))
 
 	// Count nodes by type
 	type typeCount struct {
@@ -90,11 +91,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		tiers = append(tiers, ti)
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		out := map[string]interface{}{
-			"database":     dbPath,
-			"agent":        agent,
+			"database":     cmdutil.DBPath(cmd),
+			"agent":        cmdutil.Agent(cmd),
 			"file_size":    fileSize,
 			"total_nodes":  totalNodes,
 			"total_tokens": totalTokens,
@@ -106,10 +107,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		data, _ := json.MarshalIndent(out, "", "  ")
 		fmt.Println(string(data))
 	default:
-		if agent != "" {
-			fmt.Printf("Agent: %s\n", agent)
+		if cmdutil.Agent(cmd) != "" {
+			fmt.Printf("Agent: %s\n", cmdutil.Agent(cmd))
 		}
-		fmt.Printf("Database: %s", dbPath)
+		fmt.Printf("Database: %s", cmdutil.DBPath(cmd))
 		if fileSize > 0 {
 			fmt.Printf(" (%.1f KB)", float64(fileSize)/1024)
 		}

@@ -12,7 +12,6 @@ import (
 // verify two rows with the right access types.
 func TestCLI_AccessLog_EndToEnd(t *testing.T) {
 	setupCLI(t)
-	resetAccessedFlags()
 
 	id := seedNode(t, "fact", "end-to-end access fact")
 
@@ -22,7 +21,6 @@ func TestCLI_AccessLog_EndToEnd(t *testing.T) {
 	_, err = runCLI(t, "query", "type:fact")
 	require.NoError(t, err)
 
-	resetAccessedFlags()
 	out, err := runCLI(t, "accessed", "--all-agents")
 	require.NoError(t, err)
 
