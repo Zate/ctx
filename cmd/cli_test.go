@@ -38,8 +38,6 @@ func setupCLI(t *testing.T) {
 	updateContent = ""
 	updateType = ""
 	updateMeta = ""
-	linkType = "RELATES_TO"
-	unlinkType = ""
 	showWithEdges = false
 	includeSuperseded = false
 	composeQuery = ""

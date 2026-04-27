@@ -1,9 +1,10 @@
-package cmd
+package graph
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var unlinkType string
@@ -17,21 +18,21 @@ var unlinkCmd = &cobra.Command{
 
 func init() {
 	unlinkCmd.Flags().StringVar(&unlinkType, "type", "", "Edge type (optional, removes all if not specified)")
-	rootCmd.AddCommand(unlinkCmd)
+	register(unlinkCmd)
 }
 
 func runUnlink(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	fromID, err := resolveArg(d, args[0])
+	fromID, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}
-	toID, err := resolveArg(d, args[1])
+	toID, err := cmdutil.ResolveArg(d, args[1])
 	if err != nil {
 		return err
 	}

@@ -1,10 +1,11 @@
-package cmd
+package graph
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var linkType string
@@ -18,21 +19,21 @@ var linkCmd = &cobra.Command{
 
 func init() {
 	linkCmd.Flags().StringVar(&linkType, "type", "RELATES_TO", "Edge type")
-	rootCmd.AddCommand(linkCmd)
+	register(linkCmd)
 }
 
 func runLink(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	fromID, err := resolveArg(d, args[0])
+	fromID, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}
-	toID, err := resolveArg(d, args[1])
+	toID, err := cmdutil.ResolveArg(d, args[1])
 	if err != nil {
 		return err
 	}
@@ -42,7 +43,7 @@ func runLink(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(edge, "", "  ")
 		fmt.Println(string(data))

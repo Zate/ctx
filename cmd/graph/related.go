@@ -1,10 +1,11 @@
-package cmd
+package graph
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var relatedDepth int
@@ -18,17 +19,17 @@ var relatedCmd = &cobra.Command{
 
 func init() {
 	relatedCmd.Flags().IntVar(&relatedDepth, "depth", 1, "Traversal depth")
-	rootCmd.AddCommand(relatedCmd)
+	register(relatedCmd)
 }
 
 func runRelated(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	id, err := resolveArg(d, args[0])
+	id, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}
@@ -78,10 +79,10 @@ func runRelated(cmd *cobra.Command, args []string) error {
 		for i, r := range results {
 			ids[i] = r.ID
 		}
-		_ = d.LogAccessBatch(ids, "graph_walk", agent, "related:"+args[0])
+		_ = d.LogAccessBatch(ids, "graph_walk", cmdutil.Agent(cmd), "related:"+args[0])
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(results, "", "  ")
 		fmt.Println(string(data))

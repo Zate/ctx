@@ -1,10 +1,11 @@
-package cmd
+package graph
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var edgesDirection string
@@ -18,17 +19,17 @@ var edgesCmd = &cobra.Command{
 
 func init() {
 	edgesCmd.Flags().StringVar(&edgesDirection, "direction", "both", "Direction: in, out, both")
-	rootCmd.AddCommand(edgesCmd)
+	register(edgesCmd)
 }
 
 func runEdges(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	id, err := resolveArg(d, args[0])
+	id, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}
@@ -38,7 +39,7 @@ func runEdges(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(edges, "", "  ")
 		fmt.Println(string(data))
