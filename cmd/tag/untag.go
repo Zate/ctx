@@ -1,9 +1,10 @@
-package cmd
+package tag
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var untagCmd = &cobra.Command{
@@ -14,17 +15,17 @@ var untagCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(untagCmd)
+	register(untagCmd)
 }
 
 func runUntag(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	id, err := resolveArg(d, args[0])
+	id, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}

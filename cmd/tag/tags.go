@@ -1,10 +1,11 @@
-package cmd
+package tag
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var tagsPrefix string
@@ -17,11 +18,11 @@ var tagsCmd = &cobra.Command{
 
 func init() {
 	tagsCmd.Flags().StringVar(&tagsPrefix, "prefix", "", "Filter by prefix")
-	rootCmd.AddCommand(tagsCmd)
+	register(tagsCmd)
 }
 
 func runTags(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
@@ -37,7 +38,7 @@ func runTags(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	switch format {
+	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(tags, "", "  ")
 		fmt.Println(string(data))

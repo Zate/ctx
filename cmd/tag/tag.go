@@ -1,9 +1,11 @@
-package cmd
+package tag
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
 var tagCmd = &cobra.Command{
@@ -14,17 +16,17 @@ var tagCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(tagCmd)
+	register(tagCmd)
 }
 
 func runTag(cmd *cobra.Command, args []string) error {
-	d, err := openDB()
+	d, err := cmdutil.OpenDB(cmd)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 
-	nodeID, err := resolveArg(d, args[0])
+	nodeID, err := cmdutil.ResolveArg(d, args[0])
 	if err != nil {
 		return err
 	}
@@ -34,6 +36,6 @@ func runTag(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Printf("Tagged: %s with %s\n", nodeID[:8], joinStrings(args[1:], ", "))
+	fmt.Printf("Tagged: %s with %s\n", nodeID[:8], strings.Join(args[1:], ", "))
 	return nil
 }
