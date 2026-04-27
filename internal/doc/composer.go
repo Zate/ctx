@@ -1,13 +1,8 @@
 package doc
 
-// Task 3.3: Compose(docID string, store db.Store) ([]byte, error)
-//
-// ComposeDoc loads a document node + all CONTAINS edges for that document,
-// sorts the content nodes by position, and concatenates their bodies in
-// depth-first (position) order to reconstruct the original source bytes.
-//
-// This is the authoritative Phase 3 implementation. ComposeFromStore in
-// persist.go is a simpler Phase 2 stub; cmd/doc.go uses ComposeDoc now.
+// ComposeDoc loads a document node and all its CONTAINS edges, sorts the
+// content nodes by position, and concatenates their bodies in depth-first
+// (position) order to reconstruct the original source bytes.
 
 import (
 	"database/sql"

@@ -1,12 +1,11 @@
 package doc_test
 
-// Phase 6: Kind Promotion tests (tasks 6.1 and 6.2).
-//
-// 6.1 Promote: PromoteNode changes kind from content→memory, requires --type,
-//     preserves CONTAINS edges, compose output byte-identical. Without the
-//     correct call, errors.
-// 6.2 Inline: InlineNode adds a CONTAINS edge targeting a kind='memory' node;
-//     memory node kind is unchanged; compose reads its body verbatim.
+// Kind-promotion tests:
+//   - PromoteNode changes kind from content→memory, requires --type,
+//     preserves CONTAINS edges, and keeps compose output byte-identical.
+//   - InlineNode adds a CONTAINS edge targeting an existing kind='memory'
+//     node; the memory node's kind is unchanged and compose reads its
+//     body verbatim.
 
 import (
 	"crypto/sha256"

@@ -13,8 +13,6 @@ import (
 	"github.com/zate/ctx/testutil"
 )
 
-// --- Task 2.3: Persist tests ---
-
 func TestPersist_CreatesDocumentAndContentNodes(t *testing.T) {
 	store := testutil.SetupTestDB(t)
 	src := []byte("# Heading\n\nBody text.\n\n# Second\n\nMore text.\n")

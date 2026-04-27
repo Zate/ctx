@@ -1,6 +1,6 @@
 package doc
 
-// Phase 6: Kind Promotion — PromoteNode and InlineNode.
+// Kind promotion: PromoteNode and InlineNode.
 //
 // PromoteNode promotes a kind='content' node to kind='memory' with the given
 // memory type. The node's body is unchanged; its CONTAINS edges are preserved;

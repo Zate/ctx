@@ -10,8 +10,6 @@ import (
 	"github.com/zate/ctx/internal/doc"
 )
 
-// --- Task 2.1: Decompose unit tests ---
-
 func TestDecompose_SimpleHeadingAndBody(t *testing.T) {
 	src := []byte("# Heading\n\nSome body text.\n")
 	tree, err := doc.Decompose(src)
@@ -107,7 +105,8 @@ func TestDecompose_OnlyPreamble(t *testing.T) {
 	assert.Equal(t, src, concatTree(tree))
 }
 
-// --- Task 2.2: Whitespace-ownership tests ---
+// Whitespace-ownership tests: every byte in the input must be attributed to
+// exactly one tree node so round-trip composition is byte-identical.
 
 func TestDecompose_CRLFLineEndings(t *testing.T) {
 	src := []byte("# Heading\r\n\r\nBody text.\r\n")

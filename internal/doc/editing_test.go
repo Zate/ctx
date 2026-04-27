@@ -1,12 +1,16 @@
 package doc_test
 
-// Phase 5 editing primitive tests (tasks 5.1–5.5).
-//
-// 5.1 mv: reparent within same doc shifts positions correctly; reject cross-doc moves; reject cycles.
-// 5.2 insert: positions shift siblings; inserting an existing memory node via --memory works.
-// 5.3 remove: drops the CONTAINS edge; errors without --recursive if descendants exist; content node remains.
-// 5.4 fork: new document + independent CONTAINS edges over same content IDs; editing one does not affect the other.
-// 5.5 split: mid-body split produces two siblings whose bodies concatenate to original; reject offset=0, offset=len, mid-UTF8.
+// Editing-primitive tests covering mv, insert, remove, fork, split:
+//   - mv: reparent within same doc shifts positions correctly; reject
+//     cross-doc moves and cycles.
+//   - insert: positions shift siblings; --memory inserts an existing
+//     kind='memory' node by reference.
+//   - remove: drops the CONTAINS edge; errors without --recursive if
+//     descendants exist; content node remains.
+//   - fork: new document + independent CONTAINS edges over the same
+//     content IDs; editing one document does not affect the other.
+//   - split: mid-body split produces two siblings whose bodies concatenate
+//     to the original; reject offset=0, offset=len, and mid-UTF8.
 
 import (
 	"crypto/sha256"
@@ -91,7 +95,7 @@ func composeHash(t *testing.T, docID string, store db.Store) string {
 }
 
 // ---------------------------------------------------------------------------
-// 5.1 mv tests
+// mv tests
 // ---------------------------------------------------------------------------
 
 // TestMv_ReparentShiftsPositions: after mv, the node appears at the requested
@@ -174,7 +178,7 @@ func TestMv_NoCycleWithSelf(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2 insert tests
+// insert tests
 // ---------------------------------------------------------------------------
 
 // TestInsert_ShiftsPositions: inserting a node at a specific position shifts
@@ -196,8 +200,9 @@ func TestInsert_ShiftsPositions(t *testing.T) {
 	assert.Equal(t, newNodeID, after[0], "new node must be first")
 }
 
-// TestInsert_MemoryNode: inserting an existing memory-kind node creates a CONTAINS
-// edge; the node's kind stays 'memory'. (Phase 6 "inline" preview — see Phase 6 notes.)
+// TestInsert_MemoryNode: inserting an existing memory-kind node creates a
+// CONTAINS edge; the node's kind stays 'memory'. Promotion to 'content' is
+// a separate explicit operation (PromoteNode/InlineNode in promotion.go).
 func TestInsert_MemoryNode(t *testing.T) {
 	store := testutil.SetupTestDB(t)
 	src := []byte("# Section\n\nBody.\n")
@@ -217,14 +222,14 @@ func TestInsert_MemoryNode(t *testing.T) {
 	// The CONTAINS edge must exist.
 	assert.True(t, hasContainsEdge(t, docID, memNode.ID, store), "CONTAINS edge must exist for memory node")
 
-	// The node kind must still be 'memory' — Phase 6 promotes it, not Phase 5.
+	// The node's kind must still be 'memory' — promotion is a separate operation.
 	n, err := store.GetNode(memNode.ID)
 	require.NoError(t, err)
-	assert.Equal(t, db.NodeKindMemory, n.Kind, "InsertMemoryNode must NOT change node kind (Phase 6 does promotion)")
+	assert.Equal(t, db.NodeKindMemory, n.Kind, "InsertMemoryNode must not change node kind")
 }
 
 // ---------------------------------------------------------------------------
-// 5.3 remove tests
+// remove tests
 // ---------------------------------------------------------------------------
 
 // TestRemove_DropsContainsEdge: after remove, the CONTAINS edge is gone.
@@ -330,7 +335,7 @@ func TestRemove_RecursiveRemovesDescendants(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.4 fork tests
+// fork tests
 // ---------------------------------------------------------------------------
 
 // TestFork_NewDocumentNodeCreated: fork creates a new kind='document' node.
@@ -414,7 +419,7 @@ func TestFork_EditForkDoesNotAffectOriginal(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.5 split tests
+// split tests
 // ---------------------------------------------------------------------------
 
 // TestSplit_MidBodyProducesTwoSiblings: split at a mid-body offset produces two

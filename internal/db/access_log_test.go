@@ -1,7 +1,7 @@
 package db_test
 
-// Phase 2 tests — LogAccess / LogAccessBatch / QueryAccess with kind='memory'
-// isolation guard.
+// LogAccess / LogAccessBatch / QueryAccess tests, including the
+// kind='memory' isolation guard.
 
 import (
 	"sync"

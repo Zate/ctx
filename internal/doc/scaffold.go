@@ -1,6 +1,6 @@
 package doc
 
-// Package doc scaffold.go — Phase 4: XML interchange for document structure.
+// XML interchange for document structure.
 //
 // MarshalScaffold emits a pure-structure <ctx:doc> XML for the document.
 // UnmarshalScaffold parses the XML back to a Scaffold struct.
@@ -90,9 +90,9 @@ func MarshalScaffold(docID string, store db.Store) ([]byte, error) {
 		return nil, fmt.Errorf("scaffold.Marshal: rows: %w", err)
 	}
 
-	// Build the XML node list (flat — Phase 3 Persist stores nodes flat, not
-	// hierarchically). Each content node maps to one <ctx:node ref="..."/> child
-	// of the document root, ordered by position.
+	// Build the XML node list. Persist stores nodes flat (not hierarchically),
+	// so each content node maps to one <ctx:node ref="..."/> child of the
+	// document root, ordered by position.
 	xDoc := &xmlDoc{ID: docID}
 	for _, e := range edges {
 		xDoc.Children = append(xDoc.Children, &xmlDocNode{Ref: e.toID})
@@ -159,7 +159,7 @@ func convertXMLNodes(xNodes []*xmlDocNode) []*ScaffoldNode {
 }
 
 // scaffoldFlat flattens a Scaffold's children in document order, assigning
-// positions i*10 (1-indexed). This mirrors Phase 2 Persist convention.
+// positions i*10 (1-indexed) to match the Persist convention.
 func scaffoldFlat(children []*ScaffoldNode) []string {
 	var ids []string
 	var walk func(nodes []*ScaffoldNode)

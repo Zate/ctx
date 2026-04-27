@@ -1,10 +1,12 @@
 package doc_test
 
-// Phase 4 scaffold tests (tasks 4.1, 4.2, 4.3).
-//
-// 4.1 Marshal tests: edge graph → <ctx:doc> XML, deterministic order, no bodies, correct nesting.
-// 4.2 Unmarshal tests: valid XML → Scaffold; error on malformed XML; error on unresolved refs.
-// 4.3 Apply tests: minimal mutation set; sha256(compose) unchanged after pure rearrangement.
+// Scaffold tests covering the XML interchange for document structure:
+//   - Marshal: edge graph → <ctx:doc> XML, deterministic order, no bodies,
+//     correct nesting.
+//   - Unmarshal: valid XML → Scaffold; errors on malformed XML or
+//     unresolved refs.
+//   - Apply: minimal mutation set; sha256(compose) unchanged after pure
+//     rearrangement.
 
 import (
 	"crypto/sha256"

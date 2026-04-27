@@ -1,6 +1,6 @@
 package db_test
 
-// Phase 1 tests — schema migration v6 adds the access_log table on both backends.
+// Schema migration v6 must add the access_log table on both backends.
 
 import (
 	"os"

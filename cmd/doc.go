@@ -132,8 +132,8 @@ var docInsertCmd = &cobra.Command{
 document at the given position (1-indexed). Existing nodes at that position and
 beyond are shifted forward. The node must already exist in the store.
 
-Note: --memory allows inserting a kind='memory' node. Its kind is NOT changed
-(Phase 6 handles kind promotion to 'content' for inline memory nodes).`,
+Note: --memory allows inserting a kind='memory' node. Its kind is not changed;
+use 'ctx doc promote' or 'ctx doc inline' to promote a memory node to content.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runDocInsert,
 }
@@ -239,7 +239,7 @@ func init() {
 	// insert flags
 	docInsertCmd.Flags().StringVar(&docInsertDocID, "doc", "", "Document ID to insert into (required)")
 	docInsertCmd.Flags().IntVar(&docInsertPos, "pos", 1, "Position to insert at (1-indexed, default: 1)")
-	docInsertCmd.Flags().BoolVar(&docInsertMemory, "memory", false, "Allow inserting a kind='memory' node (Phase 6 inline preview)")
+	docInsertCmd.Flags().BoolVar(&docInsertMemory, "memory", false, "Allow inserting a kind='memory' node")
 	_ = docInsertCmd.MarkFlagRequired("doc")
 
 	// remove flags

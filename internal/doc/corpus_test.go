@@ -1,12 +1,9 @@
 package doc_test
 
-// Task 3.2: Corpus harness
-// For each fixture in testdata/corpus/:
-//   1. Import (Decompose + Persist) the fixture.
-//   2. ComposeDoc the result.
-//   3. Assert sha256(composed) == sha256(fixture).
-//
-// Each fixture is a separate subtest so failures are isolated.
+// Corpus round-trip harness: for each fixture in testdata/corpus/, import
+// (Decompose + Persist), ComposeDoc the result, and assert the sha256 of
+// the composed bytes matches the fixture. Each fixture runs as a subtest
+// so failures stay isolated.
 
 import (
 	"crypto/sha256"

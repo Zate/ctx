@@ -1,21 +1,21 @@
 package doc
 
-// Phase 5: Editing Primitives — mv, insert, remove, fork, split.
+// Editing primitives: mv, insert, remove, fork, split.
 //
 // Design:
 //   - MvNode, InsertNode, RemoveNode: operate on CONTAINS edges only.
 //     Construct a modified Scaffold and call ApplyScaffold where natural;
 //     use direct SQL for operations that don't map cleanly to the scaffold diff.
-//   - ForkDoc: create a new kind='document' node + copy all CONTAINS edges with
-//     new document_id. Verify compose(forkID) == compose(origID).
-//   - SplitNode: the only primitive that creates new content nodes. Splits a
-//     content node at a byte offset into two new sibling content nodes. The
-//     original node body is left intact (it may be referenced by other docs).
-//     UTF-8 safety: reject any offset that lands on a continuation byte.
+//   - ForkDoc: create a new kind='document' node + copy all CONTAINS edges
+//     with the new document_id. Verify compose(forkID) == compose(origID).
+//   - SplitNode: the only primitive that creates new content nodes. Splits
+//     a content node at a byte offset into two new sibling content nodes.
+//     The original node body is left intact (it may be referenced by other
+//     docs). UTF-8 safety: reject any offset that lands on a continuation byte.
 //
 // Invariants preserved:
 //   - CONTAINS edge positions are strictly increasing (i*10 gap).
-//   - Content node bodies are never mutated (except via split, which creates NEW nodes).
+//   - Content node bodies are never mutated (split creates NEW nodes).
 //   - Cross-doc moves are rejected.
 //   - split at offset=0, offset=len(body), or mid-UTF-8 is rejected.
 
@@ -90,13 +90,11 @@ func InsertNode(docID, nodeID string, toPos int, store db.Store) error {
 	return insertNodeInternal(docID, nodeID, toPos, false, store)
 }
 
-// InsertMemoryNode inserts a kind='memory' node into docID at toPos.
-// The node's kind is NOT changed — Phase 6 handles kind promotion.
-//
-// NOTE (Phase 6 forward reference): when Phase 6 implements "inline memory",
-// it should call InsertMemoryNode and then update the node's kind to 'content'
-// in the same transaction. Phase 5 deliberately does NOT promote the kind so
-// that the memory node remains available to the memory recall surface.
+// InsertMemoryNode inserts a kind='memory' node into docID at toPos. The
+// node's kind is NOT changed — kind promotion is a separate explicit
+// operation (PromoteNode/InlineNode in promotion.go) so the memory node
+// remains visible to the memory recall surface unless promotion is
+// requested.
 func InsertMemoryNode(docID, nodeID string, toPos int, store db.Store) error {
 	return insertNodeInternal(docID, nodeID, toPos, true, store)
 }

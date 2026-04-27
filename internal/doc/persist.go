@@ -89,9 +89,10 @@ func Persist(tree *DocTree, src []byte, store db.Store) (string, error) {
 	return docID, nil
 }
 
-// ComposeFromStore re-assembles the document for docID by reading all CONTAINS
-// edges in position order and concatenating content node bodies.
-// This is the minimal Phase 2 implementation; Phase 3 will expand it.
+// ComposeFromStore re-assembles the document for docID by reading all
+// CONTAINS edges in position order and concatenating content node bodies.
+// Prefer ComposeDoc in composer.go; this variant is kept for callers that
+// need the simpler signature.
 func ComposeFromStore(docID string, store db.Store) ([]byte, error) {
 	rows, err := store.Query(
 		`SELECT n.content

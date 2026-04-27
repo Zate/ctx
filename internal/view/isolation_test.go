@@ -1,8 +1,7 @@
 package view_test
 
-// Task 1.4: Composer seed-mode isolation test.
-// Insert a memory node with a RELATES_TO edge pointing to a content node;
-// run the composer in seed mode and assert the content node is NOT returned.
+// Composer in seed mode must not traverse RELATES_TO edges from a memory
+// node into content/doc nodes — assert the linked content node is excluded.
 
 import (
 	"path/filepath"

@@ -1,8 +1,8 @@
 package db_test
 
-// Task 1.1: Regression tests — memory-path surfaces must exclude doc/content nodes.
-// Insert kind='document' + kind='content' nodes via raw SQL, then assert:
-// ListMemoryNodes, Search, ListAllTags, ListTagsByPrefix exclude them.
+// Memory-path surfaces must exclude doc/content nodes. Insert kind='document'
+// and kind='content' nodes via raw SQL, then assert ListMemoryNodes, Search,
+// ListAllTags, and ListTagsByPrefix all filter them out.
 
 import (
 	"fmt"

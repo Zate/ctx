@@ -1,7 +1,6 @@
 package doc_test
 
-// Task 3.1: Compose unit tests
-// Tests for Compose(docID string, store db.Store) ([]byte, error).
+// Unit tests for Compose(docID string, store db.Store) ([]byte, error).
 
 import (
 	"crypto/sha256"

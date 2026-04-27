@@ -1,9 +1,9 @@
 package query_test
 
-// Task 1.2: Query parser / executor isolation tests.
-// - type:fact implicitly scopes to kind='memory'
-// - kind:content and kind:document predicates work
-// - omitted kind defaults to memory
+// Query parser/executor isolation between memory and doc/content kinds:
+//   - type:fact implicitly scopes to kind='memory'
+//   - kind:content and kind:document predicates work
+//   - omitted kind defaults to memory
 
 import (
 	"path/filepath"

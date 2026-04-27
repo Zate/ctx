@@ -1,8 +1,8 @@
 package hook_test
 
-// Task 1.3: Hook executor isolation tests.
-// - <ctx:remember> refuses kind=document / kind=content attribute
-// - <ctx:recall> (via stored query) will not match non-memory nodes
+// Hook executor must keep memory isolated from doc/content kinds:
+//   - <ctx:remember> refuses kind=document / kind=content
+//   - <ctx:recall> (via stored query) does not match non-memory nodes
 
 import (
 	"testing"

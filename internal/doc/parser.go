@@ -162,8 +162,8 @@ func flattenChildren(root *DocTree) []*DocNode {
 }
 
 // Compose reassembles the document by concatenating all node bodies in
-// depth-first order. This is a minimal implementation for Phase 2's
-// round-trip check; Phase 3 will replace/expand it.
+// depth-first order. It operates on an in-memory DocTree; ComposeDoc in
+// composer.go performs the equivalent reconstruction from the store.
 func Compose(root *DocTree) []byte {
 	var buf bytes.Buffer
 	var walk func(n *DocNode)

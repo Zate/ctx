@@ -28,7 +28,7 @@ type AccessLogQuery struct {
 	Limit        int
 }
 
-// Access type constants — keep in sync with the wired call sites in Phase 3.
+// Access type constants — keep in sync with the wired call sites.
 const (
 	AccessTypeHookInject    = "hook_inject"
 	AccessTypeExplicitQuery = "explicit_query"

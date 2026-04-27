@@ -47,7 +47,7 @@ func mcpOpenDB() (db.Store, error) {
 }
 
 func registerTools(s *server.MCPServer) {
-	// Phase 1: Core tools
+	// Core tools
 	s.AddTool(mcp.NewTool("ctx_remember",
 		mcp.WithDescription("Store a knowledge node in persistent memory"),
 		mcp.WithString("type",
@@ -104,7 +104,7 @@ func registerTools(s *server.MCPServer) {
 		),
 	), handleCompose)
 
-	// Phase 2: CRUD tools
+	// CRUD tools
 	s.AddTool(mcp.NewTool("ctx_show",
 		mcp.WithDescription("Show a specific node by ID with full content and metadata"),
 		mcp.WithString("id",
@@ -196,7 +196,7 @@ func registerTools(s *server.MCPServer) {
 		),
 	), handleTags)
 
-	// Phase 3: Advanced tools
+	// Advanced tools
 	s.AddTool(mcp.NewTool("ctx_summarize",
 		mcp.WithDescription("Create a summary node from existing nodes, optionally archiving the sources"),
 		mcp.WithString("nodes",
@@ -260,7 +260,7 @@ func registerTools(s *server.MCPServer) {
 	), handleTrace)
 }
 
-// Phase 1 handlers
+// Core tool handlers
 
 func handleRemember(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	d, err := mcpOpenDB()
@@ -455,7 +455,7 @@ func handleCompose(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 	return mcp.NewToolResultText(view.RenderMarkdown(result)), nil
 }
 
-// Phase 2 handlers
+// CRUD tool handlers
 
 func handleShow(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	d, err := mcpOpenDB()
@@ -731,7 +731,7 @@ func handleTags(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 	return mcp.NewToolResultText(strings.Join(tags, "\n")), nil
 }
 
-// Phase 3 handlers
+// Advanced tool handlers
 
 func handleSummarize(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	d, err := mcpOpenDB()
