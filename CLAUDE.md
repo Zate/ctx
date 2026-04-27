@@ -1,135 +1,32 @@
 # CLAUDE.md
 
-This is `ctx` — a persistent memory system for Claude Code agents. It's built, it works, and you're probably already using it (check if the session-start hook injected knowledge above).
+Claude-specific addendum. For codebase layout, conventions, schema, testing, and critical paths, read [AGENTS.md](AGENTS.md) — it's the canonical contributor guide for any agent.
 
-## What This Is
+## You're Probably Using This Right Now
 
-A Go CLI tool that gives you persistent, structured memory across conversations. You store knowledge by writing `<ctx:*>` XML commands in your responses. Hooks parse those commands after you respond and persist them to a SQLite graph database. On the next session, your stored knowledge is automatically injected into context.
+This is `ctx`, the persistent memory system for Claude Code. If a session-start hook injected stored knowledge above (look for the `<!-- ctx:end -->` block), then you're already running on top of the tool you're now editing. **Be careful with changes to the parser, the hook I/O contract, and the schema** — breaking those breaks your own memory loop.
 
-**The project is functional.** The core loop works:
-1. Session starts → `ctx hook session-start` composes and injects stored knowledge
-2. You work and include `<ctx:remember>`, `<ctx:recall>`, etc. in your responses
-3. Session ends → `ctx hook stop` parses your commands and updates the database
-4. Next session starts → your knowledge is there
+## Memory vs. `ctx doc`
 
-## Project Structure
+There are two subsystems in this repo and they are deliberately isolated:
 
-```
-cmd/                       CLI commands (Cobra)
-  hook/                    Hook subcommands (session-start, prompt-submit, stop)
-  install.go               Automated installer (binary, db, skill, hooks, CLAUDE.md)
-  add.go, show.go, ...     Node/edge/tag/view management commands
-internal/
-  db/                      SQLite layer — nodes, edges, tags, pending, migrations
-  hook/                    <ctx:*> command parser + executor
-  query/                   Query language parser (AST) + executor
-  token/                   Token count estimation
-  view/                    Context composition, budget management, rendering
-testutil/                  Shared test helpers
-```
+- **Memory** (`kind='memory'` nodes): what `<ctx:remember>`, `<ctx:recall>`, `ctx search`, `ctx list`, `ctx status`, and the session-start composer all operate on. This is what gives you persistent knowledge across sessions.
+- **`ctx doc`** (`kind='document'` and `kind='content'` nodes): an opt-in subsystem for decomposing/recomposing markdown documents. **Invisible to memory queries by default.** Only reach for it when the user explicitly asks to decompose, edit sections of, or recompose a markdown file.
 
-## Technical Stack
+Doc nodes will not appear in memory commands, will not be composed into your context on session-start, and `<ctx:remember>` will never create them. Promotion from doc → memory requires `--into-memory` as a safety gate.
 
-- **Go 1.24** with modules
-- **SQLite** via `modernc.org/sqlite` (pure Go, no CGO)
-- **Cobra** for CLI
-- **ULID** (`oklog/ulid/v2`) for time-sortable IDs
-- **testify** for assertions
+## Using `ctx` In Your Responses
 
-Database lives at `~/.ctx/store.db`. WAL mode, foreign keys enabled.
+When working in any project that has ctx active, follow the skill: `Skill: using-ctx` for the full reference, or `ctx --agent-help` for a token-minimal command index. Key rules:
 
-## Schema
+- Tag every node with a `tier:` (pinned / reference / working / off-context) and a `project:NAME`.
+- `<ctx:remember>` commands inside fenced code blocks or inline code are ignored — safe for examples.
+- Verify before recommending. A memory that names a function/flag/file is a claim it existed *when written*; it may have been renamed or removed.
 
-Six tables: `nodes`, `edges`, `tags`, `views`, `pending`, `schema_version`. Plus `nodes_fts` (FTS5 virtual table) for full-text search. Migrations are version-tracked. See `internal/db/db.go` for the full schema.
+## When You're Editing This Repo
 
-**Node types:** `fact`, `decision`, `pattern`, `observation`, `hypothesis`, `task`, `summary`, `source`, `open-question`
+Run `make test` before committing. The parser test suite (`internal/hook/parser_test.go`) and the executor tests are the most load-bearing — they protect the memory loop you depend on. The hook I/O contract (`session-start` outputs `{"hookSpecificOutput": ...}`, `stop` outputs `{}`) must not change without coordinated changes to the Claude Code plugin.
 
-**Tier tags** control what gets composed into context: `tier:pinned` (always loaded), `tier:reference` (on-demand via recall), `tier:working` (current task), `tier:off-context` (archived).
+If you're touching the schema, mirror SQLite changes (`internal/db/db.go`) into PostgreSQL (`internal/db/postgres.go`).
 
-## Key Subsystems
-
-### Command Parser (`internal/hook/parser.go`)
-Parses `<ctx:*>` XML commands from agent responses. Correctly ignores commands inside fenced code blocks and inline code. Handles self-closing tags, multi-line content, and attribute parsing. This is the most critical piece — if parsing breaks, the memory loop breaks.
-
-### Command Executor (`internal/hook/executor.go`)
-Executes parsed commands against the database. Handles: `remember`, `recall`, `summarize`, `link`, `status`, `task`, `expand`, `supersede`. Each has specific validation rules.
-
-### Query Language (`internal/query/parser.go`)
-Custom query parser supporting predicates (`type:fact`, `tag:project:X`), boolean operators (`AND`, `OR`, `NOT`), grouping with parentheses, and comparison operators (`created:>2025-01-01`, `tokens:<1000`). Has fuzz tests.
-
-### Context Composer (`internal/view/composer.go`)
-Selects nodes matching a query, sorts by tier priority then recency, applies a token budget, and renders as markdown for injection. The default view query is `tag:tier:pinned OR tag:tier:working` with a 50,000-token budget. Reference nodes are not auto-loaded but their availability is reported in the session-start output.
-
-### Installer (`cmd/install.go`)
-`ctx install` is deprecated in favor of the plugin-based installation. `ctx init` handles database creation only. The plugin (`cc-plugins/plugins/ctx/`) handles binary auto-download, hook registration, and skill injection.
-
-### Access Logging (`internal/db/access_log.go`, `cmd/accessed.go`)
-Every memory-node retrieval records a row in the `access_log` table (schema v6). `LogAccess` / `LogAccessBatch` gate inserts behind a `kind='memory'` EXISTS subquery, so doc/content nodes are silently skipped — call sites do not need to filter. Retrieval surfaces (`show`, `query`, `search`, `list`, `compose`, `related`, `trace`, `session-start`, recall execution) call these helpers; writes do not. Logging failures are swallowed and never propagate to the caller. `ctx accessed` queries the log with `--node`, `--type`, `--since`, `--limit`, `--json`, `--all-agents`; by default it scopes to the current `--agent` / `$CTX_AGENT`. `QueryAccess` re-applies the `kind='memory'` filter on read, so raw-inserted rows for non-memory nodes are never surfaced. See `docs/access-logging.md`.
-
-### ctx doc (`cmd/doc.go`, `internal/doc/`)
-An opt-in subsystem for decomposing, editing, and recomposing markdown documents. Completely separate from the memory subsystem.
-
-**Critical isolation rule:** `ctx doc` nodes are invisible to memory queries by default. Specifically:
-- `ctx recall`, `ctx search`, `ctx query`, `ctx list`, `ctx status`: filter to `kind=memory` nodes; content and document nodes are excluded.
-- `ctx hook session-start`: composes only `kind=memory` nodes matching the tier query; doc nodes never appear.
-- `ctx hook stop` / `<ctx:remember>`: only creates `kind=memory` nodes.
-
-**When to use:** Only when the user explicitly asks to decompose, edit sections of, or recompose a markdown document. Do not reach for `ctx doc` during ordinary memory operations.
-
-**How it works:**
-1. `ctx doc import <file>` — decomposes the file at heading boundaries into a `kind=document` node + `kind=content` nodes linked by CONTAINS edges. Byte-identity is verified immediately (rolls back on failure).
-2. Edit structure via `ctx doc scaffold` (emit XML) + `ctx doc apply` (apply diff) or individual commands (`mv`, `insert`, `remove`, `split`, `fork`).
-3. `ctx doc export <id>` — recomposes and emits the original bytes.
-4. `ctx doc promote <node-id> --into-memory --type <type>` — selectively promotes a content node to a memory node (requires `--into-memory` safety gate).
-5. `ctx doc inline <doc-id> --memory <memory-id>` — injects a memory node's body into a document's composed output without changing its kind.
-
-**Agent-help:** All `ctx doc *` subcommands are hidden from the tier-1 `ctx --agent-help` index (opt-in posture). Access via `ctx --agent-help doc <subcommand>`.
-
-See `docs/doc-subsystem.md` for full command reference, scaffold XML format, corpus fixture layout, and byte-identity contract details.
-
-## Working on This Project
-
-### Running Tests
-```bash
-make test          # All tests
-make test-unit     # internal/ only
-make test-fuzz     # Fuzz the query parser
-make test-coverage # Generate coverage report
-```
-
-### Building
-```bash
-make build         # Produces ./ctx binary
-make install       # Build + full installation
-```
-
-### Design Documents
-The original spec and design docs live in `docs/design/`:
-- `docs/design/ctx-specification.md` — Full technical spec
-- `docs/design/ctx-implementation-prompt.md` — 8-phase implementation roadmap
-- `docs/design/ctx-details.md` — Edge cases, implementation decisions (20 detailed Q&As)
-- `docs/design/ctx-testing.md` — Testing strategy with example code
-- `docs/design/ctx-skill-SKILL.md` — The skill file content
-
-These were the build instructions. The implementation followed them closely. They remain useful as reference for understanding design decisions, but the source code is now the source of truth.
-
-## Things to Watch Out For
-
-1. **Code block handling in parser:** Commands in fenced blocks (```) or inline code (`` ` ``) must be ignored. The parser handles this, but changes to regex patterns need careful testing — see `internal/hook/parser_test.go`.
-
-2. **Transcript reading in Stop hook:** The Stop hook reads Claude's response from the JSONL transcript file. The `--response` flag bypasses this for testing. The transcript format may change between Claude Code versions.
-
-3. **Pending state:** `recall` and `status` commands store results in the `pending` table for injection on the next prompt-submit hook. `expand` stores node IDs the same way for injection on next session-start.
-
-4. **Token budgets:** The composer skips nodes that would exceed the budget rather than truncating them. A node that's too large for the remaining budget is skipped entirely.
-
-5. **Superseded nodes:** Nodes marked with `superseded_by` are excluded from default queries. The `SUPERSEDES` edge preserves the history chain.
-
-## What's Next
-
-Potential improvements (not started):
-- Richer transcript parsing (Claude Code may structure content blocks differently)
-- Auto-summarization when working context grows large
-- Token budget tuning based on actual model context windows
-- Export/import for backup and sharing
-- Better error reporting back to the agent via hook output
+For everything else — repo layout, code style, how to add commands/predicates/migrations, testing, environment — see [AGENTS.md](AGENTS.md).

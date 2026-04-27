@@ -350,7 +350,7 @@ ctx
 - `gopkg.in/yaml.v3` — Server config parsing
 - `github.com/stretchr/testify` — Test assertions
 
-**Database:** SQLite at `~/.ctx/store.db` (local) or PostgreSQL (remote server). Schema includes `nodes`, `edges`, `tags`, `views`, `pending`, `users`, `devices`, `repo_mappings`, `sync_log`, `schema_version` tables and FTS5 full-text search (SQLite only).
+**Database:** SQLite at `~/.ctx/store.db` (local) or PostgreSQL (remote server). Schema includes `nodes`, `edges`, `tags`, `views`, `pending`, `users`, `devices`, `repo_mappings`, `sync_log`, `access_log`, `schema_version` tables and FTS5 full-text search (SQLite only).
 
 ## Cross-Platform Builds
 
