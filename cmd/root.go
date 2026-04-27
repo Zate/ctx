@@ -14,7 +14,6 @@ import (
 	nodecmd "github.com/zate/ctx/cmd/node"
 	servercmd "github.com/zate/ctx/cmd/server"
 	tagcmd "github.com/zate/ctx/cmd/tag"
-	agentpkg "github.com/zate/ctx/internal/agent"
 	"github.com/zate/ctx/internal/agenthelp"
 	"github.com/zate/ctx/internal/db"
 )
@@ -136,25 +135,6 @@ func openDB() (db.Store, error) {
 	default:
 		return nil, fmt.Errorf("unknown backend %q: use 'sqlite' or 'postgres'", backend)
 	}
-}
-
-// resolveArg resolves a node ID prefix to a full ID using the database.
-func resolveArg(d db.Store, prefix string) (string, error) {
-	resolved, err := d.ResolveID(prefix)
-	if err != nil {
-		return "", fmt.Errorf("cannot resolve ID %q: %w", prefix, err)
-	}
-	return resolved, nil
-}
-
-// agentTag returns the agent tag string for the current agent, or empty if no agent is set.
-func agentTag() string {
-	return agentpkg.Tag(agent)
-}
-
-// filterNodesByAgent filters a slice of nodes to only include those visible to the current agent.
-func filterNodesByAgent(nodes []*db.Node) []*db.Node {
-	return agentpkg.FilterNodes(nodes, agent)
 }
 
 // logAccessNodes records access for the given nodes using LogAccessBatch.

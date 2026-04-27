@@ -105,14 +105,3 @@ func runShow(cmd *cobra.Command, args []string) error {
 
 	return nil
 }
-
-func joinStrings(ss []string, sep string) string {
-	result := ""
-	for i, s := range ss {
-		if i > 0 {
-			result += sep
-		}
-		result += s
-	}
-	return result
-}
