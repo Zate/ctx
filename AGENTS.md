@@ -88,11 +88,11 @@ Modifies user files (`~/.claude/settings.json`, `~/.claude/CLAUDE.md`). The merg
 
 ## Design Documents
 
-The `ctx-*.md` files in the repo root are the original specification:
-- `ctx-specification.md` — Authoritative technical spec
-- `ctx-details.md` — 20 detailed Q&As on implementation decisions
-- `ctx-testing.md` — Testing strategy with copy-paste test code
-- `ctx-implementation-prompt.md` — The 8-phase build roadmap (completed)
+The original specification lives in `docs/design/`:
+- `docs/design/ctx-specification.md` — Authoritative technical spec
+- `docs/design/ctx-details.md` — 20 detailed Q&As on implementation decisions
+- `docs/design/ctx-testing.md` — Testing strategy with copy-paste test code
+- `docs/design/ctx-implementation-prompt.md` — The 8-phase build roadmap (completed)
 
 These remain the best reference for "why was it built this way?" questions. For "how does it work now?", read the source.
 

@@ -104,12 +104,12 @@ make install       # Build + full installation
 ```
 
 ### Design Documents
-The `ctx-*.md` files in the repo root are the original spec and design docs:
-- `ctx-specification.md` — Full technical spec
-- `ctx-implementation-prompt.md` — 8-phase implementation roadmap
-- `ctx-details.md` — Edge cases, implementation decisions (20 detailed Q&As)
-- `ctx-testing.md` — Testing strategy with example code
-- `ctx-skill-SKILL.md` — The skill file content
+The original spec and design docs live in `docs/design/`:
+- `docs/design/ctx-specification.md` — Full technical spec
+- `docs/design/ctx-implementation-prompt.md` — 8-phase implementation roadmap
+- `docs/design/ctx-details.md` — Edge cases, implementation decisions (20 detailed Q&As)
+- `docs/design/ctx-testing.md` — Testing strategy with example code
+- `docs/design/ctx-skill-SKILL.md` — The skill file content
 
 These were the build instructions. The implementation followed them closely. They remain useful as reference for understanding design decisions, but the source code is now the source of truth.
 

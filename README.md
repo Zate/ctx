@@ -393,13 +393,13 @@ make clean
 
 ## Design Documents
 
-The `ctx-*.md` files in the repository root contain the full specification and design:
+The `docs/design/` directory contains the full specification and design:
 
-- **ctx-specification.md** — Technical spec: schema, commands, query language, hooks
-- **ctx-implementation-prompt.md** — Implementation roadmap (8 phases)
-- **ctx-details.md** — Detailed implementation decisions and edge cases
-- **ctx-testing.md** — Testing strategy with example test code
-- **ctx-skill-SKILL.md** — The skill file installed for Claude Code
+- **docs/design/ctx-specification.md** — Technical spec: schema, commands, query language, hooks
+- **docs/design/ctx-implementation-prompt.md** — Implementation roadmap (8 phases)
+- **docs/design/ctx-details.md** — Detailed implementation decisions and edge cases
+- **docs/design/ctx-testing.md** — Testing strategy with example test code
+- **docs/design/ctx-skill-SKILL.md** — The skill file installed for Claude Code
 
 ## License
 

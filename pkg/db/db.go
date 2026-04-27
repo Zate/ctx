@@ -1,6 +1,6 @@
 // Package db provides public access to the ctx memory store.
 // This package re-exports types and functions from the internal implementation
-// to allow external consumers (e.g. Skippy) to embed the store.
+// to allow external consumers to embed the store.
 package db
 
 import "github.com/zate/ctx/internal/db"
