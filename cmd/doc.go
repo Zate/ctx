@@ -617,8 +617,7 @@ func runDocPromote(cmd *cobra.Command, args []string) error {
 	nodeID := args[0]
 
 	if !docPromoteIntoMemory {
-		return fmt.Errorf("doc promote: --into-memory flag is required to confirm promotion\n" +
-			"  This flag prevents accidental promotions. Pass --into-memory to proceed.")
+		return fmt.Errorf("doc promote: --into-memory flag is required to confirm promotion (this flag prevents accidental promotions)")
 	}
 
 	store, err := openDB()

@@ -237,7 +237,7 @@ func (p *parser) parsePredicate() (*QueryAST, error) {
 	// Read value - may include colons (e.g., tag:project:ctx, tag:tier:reference)
 	value, err := p.readValue()
 	if err != nil {
-		return nil, fmt.Errorf("expected value after %s:", key.value)
+		return nil, fmt.Errorf("expected value after %q", key.value+":")
 	}
 
 	return &QueryAST{

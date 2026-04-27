@@ -69,10 +69,7 @@ func getNodeContent(t *testing.T, nodeID string, store db.Store) string {
 func nodeExists(t *testing.T, nodeID string, store db.Store) bool {
 	t.Helper()
 	_, err := store.GetNode(nodeID)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // hasContainsEdge returns true if a CONTAINS edge from docID to nodeID exists.

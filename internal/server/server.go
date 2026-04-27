@@ -542,7 +542,7 @@ func (s *Server) handleCreateRepoMapping(w http.ResponseWriter, r *http.Request)
 	}
 
 	id := db.NewID()
-	now := fmt.Sprintf("%s", time.Now().UTC().Format(time.RFC3339))
+	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.store.Exec(
 		`INSERT INTO repo_mappings (id, normalized_url, project_tag, created_at) VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (normalized_url) DO UPDATE SET project_tag = $3`,
