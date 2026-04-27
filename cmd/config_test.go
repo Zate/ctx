@@ -76,7 +76,7 @@ func TestRemoteConfigLoad_NotExist(t *testing.T) {
 }
 
 func TestDetectProjectTag(t *testing.T) {
-	// This test runs in the actual git repo, so it should detect "Memdown"
+	// This test runs in the actual git repo, so it should detect "ctx"
 	tag := detectProjectTag()
 	assert.NotEmpty(t, tag)
 	assert.NotEqual(t, "unknown", tag)

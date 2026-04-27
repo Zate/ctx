@@ -25,23 +25,23 @@ func createNode(t *testing.T, d db.Store, nodeType, content string, tags []strin
 func TestCompose_ProjectFiltering_ExcludesOtherProjects(t *testing.T) {
 	d := testutil.SetupTestDB(t)
 
+	createNode(t, d, "fact", "other-specific fact", []string{"tier:reference", "project:other"})
 	createNode(t, d, "fact", "ctx-specific fact", []string{"tier:reference", "project:ctx"})
-	createNode(t, d, "fact", "memdown-specific fact", []string{"tier:reference", "project:memdown"})
 	createNode(t, d, "fact", "global fact no project tag", []string{"tier:reference"})
 
 	result, err := view.Compose(d, view.ComposeOptions{
 		Query:   "tag:tier:reference",
 		Budget:  50000,
-		Project: "memdown",
+		Project: "ctx",
 	})
 	require.NoError(t, err)
 
-	// Should include memdown + global, exclude ctx
+	// Should include ctx + global, exclude other
 	assert.Equal(t, 2, result.NodeCount)
 	contents := nodeContents(result.Nodes)
-	assert.Contains(t, contents, "memdown-specific fact")
+	assert.Contains(t, contents, "ctx-specific fact")
 	assert.Contains(t, contents, "global fact no project tag")
-	assert.NotContains(t, contents, "ctx-specific fact")
+	assert.NotContains(t, contents, "other-specific fact")
 }
 
 func TestCompose_ProjectFiltering_IncludesGlobalTag(t *testing.T) {

@@ -110,13 +110,13 @@ func TestExecuteRemember_AutoProjectTag(t *testing.T) {
 	d := testutil.SetupTestDB(t)
 
 	// Set current project in pending
-	require.NoError(t, d.SetPending("current_project", "memdown"))
+	require.NoError(t, d.SetPending("current_project", "ctx"))
 
 	cmds := []hook.CtxCommand{
 		{
 			Type:    "remember",
 			Attrs:   map[string]string{"type": "fact", "tags": "tier:reference"},
-			Content: "This should get auto-tagged with project:memdown.",
+			Content: "This should get auto-tagged with project:ctx.",
 		},
 	}
 	errs := hook.ExecuteCommandsWithErrors(d, cmds)
@@ -129,14 +129,14 @@ func TestExecuteRemember_AutoProjectTag(t *testing.T) {
 	tags, err := d.GetTags(nodes[0].ID)
 	require.NoError(t, err)
 	assert.Contains(t, tags, "tier:reference")
-	assert.Contains(t, tags, "project:memdown")
+	assert.Contains(t, tags, "project:ctx")
 }
 
 func TestExecuteRemember_NoAutoProjectTagWhenExplicit(t *testing.T) {
 	d := testutil.SetupTestDB(t)
 
 	// Set current project in pending
-	require.NoError(t, d.SetPending("current_project", "memdown"))
+	require.NoError(t, d.SetPending("current_project", "ctx"))
 
 	cmds := []hook.CtxCommand{
 		{
@@ -155,7 +155,7 @@ func TestExecuteRemember_NoAutoProjectTagWhenExplicit(t *testing.T) {
 	tags, err := d.GetTags(nodes[0].ID)
 	require.NoError(t, err)
 	assert.Contains(t, tags, "project:other")
-	assert.NotContains(t, tags, "project:memdown")
+	assert.NotContains(t, tags, "project:ctx")
 }
 
 func TestExecuteRemember_NoAutoProjectTagWhenNoPending(t *testing.T) {

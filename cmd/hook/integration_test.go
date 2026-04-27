@@ -825,7 +825,7 @@ func TestIntegration_SessionStart_FailClosed(t *testing.T) {
 
 	h.seedPinnedNode("book", "Novel plotting note.")
 	h.seedPinnedNode("cc-plugins", "Plugin marketplace convention.")
-	h.seedPinnedNode("memdown", "ctx implementation detail.")
+	h.seedPinnedNode("ctx", "ctx implementation detail.")
 
 	// Sanity check: without fail-closed and no project, legacy behavior
 	// would leak all three nodes into context.
@@ -842,7 +842,7 @@ func TestIntegration_SessionStart_FailClosed(t *testing.T) {
 	assert.NotContains(t, closedCtx, "Plugin marketplace convention.",
 		"fail-closed must not leak project:cc-plugins nodes")
 	assert.NotContains(t, closedCtx, "ctx implementation detail.",
-		"fail-closed must not leak project:memdown nodes")
+		"fail-closed must not leak project:ctx nodes")
 	assert.Contains(t, closedCtx, "0 nodes",
 		"fail-closed header should report zero nodes composed")
 	assert.Contains(t, closedCtx, "project not detected",
