@@ -273,9 +273,17 @@ func (d *PostgresStore) DeleteNode(id string) error {
 }
 
 func (d *PostgresStore) ListNodes(opts ListOptions) ([]*Node, error) {
+	return d.listNodesWhere(opts)
+}
+
+// listNodesWhere is the shared implementation behind ListNodes and
+// ListMemoryNodes. extraConditions are AND-ed verbatim into the WHERE clause —
+// callers must pass parameter-free SQL fragments (this is internal, not user
+// input).
+func (d *PostgresStore) listNodesWhere(opts ListOptions, extraConditions ...string) ([]*Node, error) {
 	query := `SELECT n.id, n.type, n.content, n.summary, n.token_estimate, n.superseded_by, n.created_at, n.updated_at, n.metadata
 		FROM nodes n`
-	var conditions []string
+	conditions := append([]string(nil), extraConditions...)
 	var args []interface{}
 	argIdx := 1
 
@@ -348,21 +356,12 @@ func (d *PostgresStore) ListNodes(opts ListOptions) ([]*Node, error) {
 	return nodes, nil
 }
 
-// ListMemoryNodes returns only kind='memory' nodes.
-// NOTE: The Postgres schema does not yet have the kind column (v5 migration is SQLite-only).
-// This stub filters in-memory until a corresponding Postgres migration is added.
+// ListMemoryNodes returns only kind='memory' nodes. Postgres node CRUD doesn't
+// yet read/write the kind column on the in-memory Node struct, but the column
+// exists in the schema (Postgres migration v7) with a default of 'memory', so
+// a SQL filter is correct and cheap.
 func (d *PostgresStore) ListMemoryNodes(opts ListOptions) ([]*Node, error) {
-	all, err := d.ListNodes(opts)
-	if err != nil {
-		return nil, err
-	}
-	var out []*Node
-	for _, n := range all {
-		if n.Kind == "" || n.Kind == NodeKindMemory {
-			out = append(out, n)
-		}
-	}
-	return out, nil
+	return d.listNodesWhere(opts, "n.kind = 'memory'")
 }
 
 func (d *PostgresStore) Search(queryStr string) ([]*Node, error) {
@@ -728,6 +727,20 @@ var postgresMigrations = []struct {
 		CREATE INDEX IF NOT EXISTS idx_access_log_type ON access_log(access_type);
 		CREATE INDEX IF NOT EXISTS idx_access_log_time ON access_log(accessed_at);
 		CREATE INDEX IF NOT EXISTS idx_access_log_agent ON access_log(agent);
+	`},
+	{7, `
+		-- Mirror SQLite v5: add memory/document/content kind to nodes and
+		-- CONTAINS-edge metadata to edges. The doc subsystem itself is still
+		-- SQLite-only; this exists so the kind='memory' isolation guards in
+		-- access_log queries (and ListMemoryNodes) work against Postgres.
+		-- FTS scoping is unnecessary here because Postgres has no doc/content
+		-- rows yet — the GIN tsvector path stays as-is until doc support lands.
+		ALTER TABLE nodes ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'memory';
+		CREATE INDEX IF NOT EXISTS idx_nodes_kind ON nodes(kind);
+
+		ALTER TABLE edges ADD COLUMN IF NOT EXISTS document_id TEXT REFERENCES nodes(id) ON DELETE CASCADE;
+		ALTER TABLE edges ADD COLUMN IF NOT EXISTS position INTEGER;
+		CREATE INDEX IF NOT EXISTS idx_edges_document ON edges(document_id, position);
 	`},
 }
 
