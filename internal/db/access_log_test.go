@@ -96,7 +96,10 @@ func TestLogAccessBatch_Stress200(t *testing.T) {
 	elapsed := time.Since(start)
 
 	assert.Equal(t, 200, countAccessLog(t, d))
-	assert.Less(t, elapsed, 200*time.Millisecond, "batch insert should be sub-200ms (single tx)")
+	// Bound is generous to absorb -race overhead and noisy CI runners; the goal
+	// is to catch a regression to per-row inserts (which take seconds), not to
+	// measure raw SQLite speed.
+	assert.Less(t, elapsed, 5*time.Second, "batch insert should be a single tx, not 200 round-trips")
 }
 
 // 2.5 — Concurrent LogAccess + DeleteNode produces no panic and no error
