@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,6 +42,10 @@ func runQuery(cmd *cobra.Command, args []string) error {
 
 	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "query:"+args[0])
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFNodes(os.Stdout, nodes, false)
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")

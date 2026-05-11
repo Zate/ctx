@@ -2,6 +2,7 @@ package tag
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -34,6 +35,10 @@ func runUntag(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "untagged", "id", id, "tag", args[1])
+		return nil
+	}
 	fmt.Printf("Untagged: %s from %s\n", args[1], id)
 	return nil
 }

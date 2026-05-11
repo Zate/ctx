@@ -82,6 +82,10 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFNode(os.Stdout, node, "created")
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(node, "", "  ")

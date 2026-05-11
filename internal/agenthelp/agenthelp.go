@@ -10,61 +10,68 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// PrintIndex renders the Tier 1 compact command index for --agent-help (no subcommand).
-// Target: <300 tokens.
+// PrintIndex renders the AH1 compact command index for --agent-help (no subcommand).
+// Output uses AOF record types: ah1, cmd, more. Target: <300 tokens.
 func PrintIndex(w io.Writer, root *cobra.Command) {
-	fmt.Fprintf(w, "%s: %s\n", root.Name(), root.Short)
-	fmt.Fprintln(w, "commands:")
+	fmt.Fprintf(w, "ah1 %s :: %s\n", root.Name(), root.Short)
 
 	cmds := collectCommands(root, "")
 	sort.Slice(cmds, func(i, j int) bool {
 		return cmds[i].priority < cmds[j].priority
 	})
 	for _, c := range cmds {
-		fmt.Fprintf(w, "  %s  %s\n", c.usage, c.short)
+		fmt.Fprintf(w, "cmd %s :: %s\n", c.usage, c.short)
 	}
+	fmt.Fprintf(w, "more %s <cmd> --agent-help\n", root.Name())
 }
 
-// PrintCommand renders the Tier 2 detail for --agent-help <command>.
-// Target: <150 tokens.
+// PrintCommand renders the AH2 command detail for --agent-help <subcommand>.
+// Output uses AOF record types: ah2, use, arg, flag, ex, note. Target: <150 tokens.
 func PrintCommand(w io.Writer, root *cobra.Command, cmd *cobra.Command) {
 	path := commandPath(cmd, root)
 	pathKey := commandKey(cmd, root)
 
-	// Build signature — use ArgsOverride from metadata if available
-	args := inferArgs(cmd, pathKey)
-	sig := strings.TrimSpace(path + " " + args)
-	fmt.Fprintln(w, sig)
+	fmt.Fprintf(w, "ah2 %s\n", path)
 
-	// Flags
+	// use line — canonical invocation
+	args := inferArgs(cmd, pathKey)
+	use := strings.TrimSpace(path + " " + args)
+	fmt.Fprintf(w, "use %s\n", use)
+
+	// flags
 	flags := collectFlags(cmd, pathKey)
-	if len(flags) > 0 {
-		fmt.Fprintln(w, "flags:")
-		for _, f := range flags {
-			fmt.Fprintf(w, "  --%s %s  %s%s\n", f.name, f.typeName, f.purpose, f.constraint)
+	for _, f := range flags {
+		req := "opt"
+		if strings.Contains(f.constraint, "[required]") {
+			req = "req"
+		} else if strings.Contains(f.typeName, "[]") || f.repeat {
+			req = "repeat"
 		}
+		fmt.Fprintf(w, "flag --%s:%s %s :: %s%s\n", f.name, f.typeName, req, f.purpose, f.defaultHint)
 	}
 
 	if meta, ok := Registry[pathKey]; ok {
 		if meta.Notes != "" {
-			fmt.Fprintf(w, "note: %s\n", meta.Notes)
+			fmt.Fprintf(w, "note %s\n", meta.Notes)
 		}
 		if meta.Example != "" {
-			fmt.Fprintln(w, "example:")
-			fmt.Fprintf(w, "  %s\n", meta.Example)
+			fmt.Fprintf(w, "ex %s\n", meta.Example)
 		}
 	}
 }
 
-// FormatError produces a tier 3 error hint for an unknown command.
+// FormatError produces an AE1-style error hint for an unknown command.
+// Output uses AOF record types: err, hint, next.
 func FormatError(w io.Writer, root *cobra.Command, badCmd string) {
-	fmt.Fprintf(w, "error: unknown command %q\n", badCmd)
+	fmt.Fprintf(w, "err unknown_cmd cmd=%s\n", badCmd)
 
 	// Try fuzzy match against available commands
 	if match := closestCommand(root, badCmd); match != "" {
-		fmt.Fprintf(w, "hint: did you mean %q? run ctx --agent-help %s\n", match, match)
+		fmt.Fprintf(w, "hint did you mean %q?\n", match)
+		fmt.Fprintf(w, "next %s --agent-help %s\n", root.Name(), match)
 	} else {
-		fmt.Fprintln(w, "hint: run ctx --agent-help for command list")
+		fmt.Fprintf(w, "hint run %s --agent-help for command list\n", root.Name())
+		fmt.Fprintf(w, "next %s --agent-help\n", root.Name())
 	}
 }
 
@@ -177,10 +184,12 @@ func inferArgs(cmd *cobra.Command, pathKey string) string {
 }
 
 type flagEntry struct {
-	name       string
-	typeName   string
-	purpose    string
-	constraint string
+	name        string
+	typeName    string
+	purpose     string
+	constraint  string // kept for required detection
+	repeat      bool
+	defaultHint string
 }
 
 // collectFlags gathers non-hidden, non-inherited flags for a command.
@@ -194,6 +203,10 @@ func collectFlags(cmd *cobra.Command, pathKey string) []flagEntry {
 		// Check for enum override in flag registry
 		flagKey := pathKey + "." + f.Name
 		typeName := mapType(f.Value.Type())
+		repeat := false
+		if t := f.Value.Type(); t == "stringArray" || t == "stringSlice" {
+			repeat = true
+		}
 		if fm, ok := FlagRegistry[flagKey]; ok && len(fm.EnumValues) > 0 {
 			typeName = "enum(" + strings.Join(fm.EnumValues, "|") + ")"
 		}
@@ -207,18 +220,21 @@ func collectFlags(cmd *cobra.Command, pathKey string) []flagEntry {
 		}
 
 		// Non-obvious defaults
+		defaultHint := ""
 		def := f.DefValue
 		if def != "" && def != "false" && def != "0" && def != "[]" {
 			if typeName != "bool" {
-				constraint += fmt.Sprintf(" [default: %s]", def)
+				defaultHint = fmt.Sprintf(" [default=%s]", def)
 			}
 		}
 
 		flags = append(flags, flagEntry{
-			name:       f.Name,
-			typeName:   typeName,
-			purpose:    purpose,
-			constraint: constraint,
+			name:        f.Name,
+			typeName:    typeName,
+			purpose:     purpose,
+			constraint:  constraint,
+			repeat:      repeat,
+			defaultHint: defaultHint,
 		})
 	})
 	return flags

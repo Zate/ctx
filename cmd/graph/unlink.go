@@ -2,6 +2,7 @@ package graph
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -41,6 +42,10 @@ func runUnlink(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "unlinked", "from", fromID, "to", toID)
+		return nil
+	}
 	fmt.Printf("Unlinked: %s → %s\n", fromID[:8], toID[:8])
 	return nil
 }

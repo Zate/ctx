@@ -17,7 +17,7 @@ func TestDocAgentHelp_Index(t *testing.T) {
 	agenthelp.PrintIndex(&buf, rootCmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "commands:")
+	assert.Contains(t, out, "ah1 ctx ::")
 
 	// All doc subcommands must be absent from the default index.
 	for _, sub := range []string{
@@ -77,8 +77,8 @@ func TestDocAgentHelp_Subcommands(t *testing.T) {
 			agenthelp.PrintCommand(&buf, rootCmd, cmd)
 			out := buf.String()
 
-			// Usage line must be present (first line = "ctx doc <subcmd> ...")
-			fullPath := "ctx " + strings.Join(tc.path, " ")
+			// AH2 header line must be present (first line = "ah2 ctx doc <subcmd>")
+			fullPath := "ah2 ctx " + strings.Join(tc.path, " ")
 			assert.True(t, strings.HasPrefix(out, fullPath),
 				"output must start with %q\ngot: %q", fullPath, out)
 
@@ -113,7 +113,7 @@ func TestDocAgentHelp_ExportFlags(t *testing.T) {
 	agenthelp.PrintCommand(&buf, rootCmd, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "flags:")
+	assert.NotContains(t, out, "flags:")
 	assert.Contains(t, out, "--output")
 }
 
@@ -126,7 +126,7 @@ func TestDocAgentHelp_SearchFlags(t *testing.T) {
 	agenthelp.PrintCommand(&buf, rootCmd, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "flags:")
+	assert.NotContains(t, out, "flags:")
 	assert.Contains(t, out, "--limit")
 }
 
@@ -139,10 +139,10 @@ func TestDocAgentHelp_MvFlags(t *testing.T) {
 	agenthelp.PrintCommand(&buf, rootCmd, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "flags:")
+	assert.NotContains(t, out, "flags:")
 	assert.Contains(t, out, "--doc")
 	assert.Contains(t, out, "--pos")
-	assert.Contains(t, out, "[required]")
+	assert.Contains(t, out, " req ")
 }
 
 // TestDocAgentHelp_PromoteFlags verifies ctx doc promote --agent-help shows --type and --into-memory.
@@ -154,10 +154,10 @@ func TestDocAgentHelp_PromoteFlags(t *testing.T) {
 	agenthelp.PrintCommand(&buf, rootCmd, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "flags:")
+	assert.NotContains(t, out, "flags:")
 	assert.Contains(t, out, "--type")
 	assert.Contains(t, out, "--into-memory")
-	assert.Contains(t, out, "[required]")
+	assert.Contains(t, out, " req ")
 }
 
 // TestDocAgentHelp_InlineFlags verifies ctx doc inline --agent-help shows --memory (required).
@@ -169,9 +169,9 @@ func TestDocAgentHelp_InlineFlags(t *testing.T) {
 	agenthelp.PrintCommand(&buf, rootCmd, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "flags:")
+	assert.NotContains(t, out, "flags:")
 	assert.Contains(t, out, "--memory")
-	assert.Contains(t, out, "[required]")
+	assert.Contains(t, out, " req ")
 }
 
 // TestDocAgentHelp_WithMetadata verifies that once metadata is registered for a
@@ -196,10 +196,10 @@ func TestDocAgentHelp_WithMetadata(t *testing.T) {
 	agenthelp.PrintCommand(&buf, rootCmd, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "example:")
-	assert.Contains(t, out, "ctx doc import README.md")
-	assert.Contains(t, out, "note:")
-	assert.Contains(t, out, "byte-identity verified on import")
+	assert.Contains(t, out, "ex ctx doc import README.md")
+	assert.NotContains(t, out, "example:")
+	assert.Contains(t, out, "note byte-identity verified on import")
+	assert.NotContains(t, out, "note:")
 }
 
 // TestDocAgentHelp_AgentHidden verifies that all doc subcommands are hidden from
@@ -236,8 +236,8 @@ func TestDocAgentHelp_TierTwoAccess(t *testing.T) {
 			out := buf.String()
 
 			assert.NotEmpty(t, out)
-			// Example must be present (all doc subcommands have one in the registry).
-			assert.Contains(t, out, "example:")
+			// AOF ex record must be present (all doc subcommands have one in the registry).
+			assert.Contains(t, out, "\nex ")
 		})
 	}
 }

@@ -2,6 +2,7 @@ package tag
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -36,6 +37,10 @@ func runTag(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "tagged", "id", nodeID, "tags", strings.Join(args[1:], "|"))
+		return nil
+	}
 	fmt.Printf("Tagged: %s with %s\n", nodeID[:8], strings.Join(args[1:], ", "))
 	return nil
 }

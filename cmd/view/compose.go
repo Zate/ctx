@@ -94,6 +94,12 @@ func runCompose(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		fmt.Fprintf(os.Stdout, "ok compose nodes=%d tokens=%d\n", len(result.Nodes), result.TotalTokens)
+		fmt.Fprint(os.Stdout, viewpkg.RenderText(result))
+		return nil
+	}
+
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(result, "", "  ")

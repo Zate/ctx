@@ -3,6 +3,7 @@ package graph
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -82,6 +83,20 @@ func runRelated(cmd *cobra.Command, args []string) error {
 		_ = d.LogAccessBatch(ids, "graph_walk", cmdutil.Agent(cmd), "related:"+args[0])
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		fmt.Fprintf(os.Stdout, "ok related count=%d\n", len(results))
+		if len(results) > 0 {
+			fmt.Fprintln(os.Stdout, "@ id type edge_type summary")
+			for _, r := range results {
+				body := r.Content
+				if len(body) > 120 {
+					body = body[:120] + "…"
+				}
+				fmt.Fprintf(os.Stdout, "- %s %s %s %s\n", r.ID, r.Type, r.Edge, cmdutil.AOFQuote(body))
+			}
+		}
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(results, "", "  ")
@@ -102,3 +117,4 @@ func runRelated(cmd *cobra.Command, args []string) error {
 
 	return nil
 }
+

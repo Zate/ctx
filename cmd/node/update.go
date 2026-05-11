@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -57,6 +58,10 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFNode(os.Stdout, node, "updated")
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(node, "", "  ")

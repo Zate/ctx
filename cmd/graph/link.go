@@ -3,6 +3,7 @@ package graph
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -43,6 +44,10 @@ func runLink(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "edge", "from", fromID, "to", toID, "type", linkType, "id", edge.ID)
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(edge, "", "  ")

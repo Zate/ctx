@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -48,6 +49,22 @@ func runShow(cmd *cobra.Command, args []string) error {
 
 	_ = d.LogAccess(node.ID, "get", cmdutil.Agent(cmd), "show:"+args[0])
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFNode(os.Stdout, node, "ok")
+		if showWithEdges {
+			edges, _ := d.GetEdges(node.ID, "both")
+			for _, e := range edges {
+				dir := "out"
+				other := e.ToID
+				if e.ToID == node.ID {
+					dir = "in"
+					other = e.FromID
+				}
+				fmt.Fprintf(os.Stdout, "edge %s %s %s\n", dir, e.Type, other)
+			}
+		}
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		out := map[string]interface{}{

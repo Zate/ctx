@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -64,6 +65,10 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "list")
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFNodes(os.Stdout, nodes, false)
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")

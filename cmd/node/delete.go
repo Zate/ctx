@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -44,6 +45,10 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "deleted", "id", id)
+		return nil
+	}
 	fmt.Printf("Deleted: %s\n", id)
 	return nil
 }

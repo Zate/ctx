@@ -3,6 +3,7 @@ package system
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -69,6 +70,22 @@ func runAccessed(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		fmt.Fprintf(os.Stdout, "ok accessed count=%d\n", len(entries))
+		if len(entries) > 0 {
+			fmt.Fprintln(os.Stdout, "@ node_id access_type agent accessed_at context")
+			for _, e := range entries {
+				ctx := "_"
+				if e.QueryContext != "" {
+					ctx = cmdutil.AOFQuote(truncateAccessCtx(e.QueryContext, 60))
+				}
+				fmt.Fprintf(os.Stdout, "- %s %s %s %s %s\n",
+					e.NodeID, e.AccessType, cmdutil.AOFQuote(e.Agent),
+					e.AccessedAt.Format("2006-01-02T15:04:05Z"), ctx)
+			}
+		}
+		return nil
+	}
 	if cmdutil.Format(cmd) == "json" {
 		if entries == nil {
 			entries = []*db.AccessEntry{}

@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -36,6 +37,10 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "search:"+args[0])
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFNodes(os.Stdout, nodes, false)
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")

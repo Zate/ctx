@@ -91,6 +91,16 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		tiers = append(tiers, ti)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		fmt.Fprintf(os.Stdout, "ok status nodes=%d tokens=%d edges=%d tags=%d\n", totalNodes, totalTokens, edgeCount, tagCount)
+		for _, tc := range typeCounts {
+			fmt.Fprintf(os.Stdout, "type %s count=%d\n", tc.Type, tc.Count)
+		}
+		for _, ti := range tiers {
+			fmt.Fprintf(os.Stdout, "tier %s nodes=%d tokens=%d\n", ti.Tier, ti.Nodes, ti.Tokens)
+		}
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		out := map[string]interface{}{

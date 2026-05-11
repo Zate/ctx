@@ -3,6 +3,7 @@ package graph
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -39,6 +40,20 @@ func runEdges(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		fmt.Fprintf(os.Stdout, "ok edges count=%d\n", len(edges))
+		if len(edges) > 0 {
+			fmt.Fprintln(os.Stdout, "@ dir type from to edge_id")
+			for _, e := range edges {
+				dir := "out"
+				if e.ToID == id {
+					dir = "in"
+				}
+				fmt.Fprintf(os.Stdout, "- %s %s %s %s %s\n", dir, e.Type, e.FromID, e.ToID, e.ID)
+			}
+		}
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(edges, "", "  ")

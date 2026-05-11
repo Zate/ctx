@@ -20,11 +20,12 @@ import (
 )
 
 var (
-	dbPath    string
-	format    string
-	backend   string
-	agent     string
+	dbPath   string
+	format   string
+	backend  string
+	agent    string
 	agentHelp bool
+	agentOut  bool
 )
 
 var rootCmd = &cobra.Command{
@@ -52,6 +53,8 @@ func init() {
 	defaultAgent := os.Getenv("CTX_AGENT")
 	rootCmd.PersistentFlags().StringVar(&agent, "agent", defaultAgent, "Agent identity for memory partitioning (filters to agent-scoped + global nodes)")
 	rootCmd.PersistentFlags().BoolVar(&agentHelp, "agent-help", false, "Token-optimized help for LLM agents")
+	rootCmd.PersistentFlags().BoolVar(&agentOut, "agent-out", false, "Emit AOF (Agent Output Format) for LLM agent consumption")
+	_ = rootCmd.PersistentFlags().MarkHidden("agent-out")
 	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + "\nLLM agent? Use --agent-help for token-optimized usage.\n")
 	rootCmd.AddCommand(hook.HookCmd)
 	mcpcmd.Register(rootCmd)

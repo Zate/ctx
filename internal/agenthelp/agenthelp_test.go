@@ -88,17 +88,19 @@ func TestPrintIndex(t *testing.T) {
 	PrintIndex(&buf, root)
 	out := buf.String()
 
-	// Header
-	assert.True(t, strings.HasPrefix(out, "tool: a test tool\n"))
-	assert.Contains(t, out, "commands:\n")
+	// Header — AOF ah1 record
+	assert.True(t, strings.HasPrefix(out, "ah1 tool :: a test tool\n"))
 
-	// Core commands present
-	assert.Contains(t, out, "add <text>  add a thing")
-	assert.Contains(t, out, "show <id>  show a thing")
-	assert.Contains(t, out, "list  list things")
+	// Core commands present — AOF cmd records
+	assert.Contains(t, out, "cmd add <text> :: add a thing")
+	assert.Contains(t, out, "cmd show <id> :: show a thing")
+	assert.Contains(t, out, "cmd list :: list things")
 
-	// Group command flattened
-	assert.Contains(t, out, "hook session-start  start session")
+	// Group command flattened — AOF cmd record
+	assert.Contains(t, out, "cmd hook session-start :: start session")
+
+	// Discovery breadcrumb
+	assert.Contains(t, out, "more tool <cmd> --agent-help")
 
 	// Excluded
 	assert.NotContains(t, out, "secret")
@@ -175,11 +177,12 @@ func TestPrintCommand(t *testing.T) {
 		PrintCommand(&buf, root, cmd)
 		out := buf.String()
 
-		assert.Contains(t, out, "tool add")
-		assert.Contains(t, out, "flags:\n")
-		assert.Contains(t, out, "--type string  node type [required]\n")
-		assert.Contains(t, out, "--tag string  tags (repeatable)\n")
-		assert.Contains(t, out, "--stdin bool  read from stdin\n")
+		// AOF ah2 + use + flag records
+		assert.Contains(t, out, "ah2 tool add\n")
+		assert.Contains(t, out, "use tool add")
+		assert.Contains(t, out, "flag --type:string req :: node type")
+		assert.Contains(t, out, "flag --tag:string repeat :: tags (repeatable)")
+		assert.Contains(t, out, "flag --stdin:bool opt :: read from stdin")
 	})
 
 	t.Run("nested command", func(t *testing.T) {
@@ -190,8 +193,9 @@ func TestPrintCommand(t *testing.T) {
 		PrintCommand(&buf, root, cmd)
 		out := buf.String()
 
-		assert.Contains(t, out, "tool hook session-start [flags]\n")
-		assert.Contains(t, out, "--project string  project name\n")
+		assert.Contains(t, out, "ah2 tool hook session-start\n")
+		assert.Contains(t, out, "use tool hook session-start")
+		assert.Contains(t, out, "flag --project:string opt :: project name")
 	})
 }
 
@@ -216,8 +220,8 @@ func TestPrintCommand_WithExample(t *testing.T) {
 	PrintCommand(&buf, root, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "example:\n")
-	assert.Contains(t, out, `tool add --type fact "hello world"`)
+	assert.Contains(t, out, `ex tool add --type fact "hello world"`)
+	assert.NotContains(t, out, "example:\n")
 }
 
 func TestPrintCommand_WithNotes(t *testing.T) {
@@ -244,8 +248,9 @@ func TestPrintCommand_WithNotes(t *testing.T) {
 	PrintCommand(&buf, root, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "note: content is required unless --stdin is used\n")
-	assert.Contains(t, out, "example:\n")
+	assert.Contains(t, out, "note content is required unless --stdin is used\n")
+	assert.Contains(t, out, "ex tool add --type fact \"hello\"\n")
+	assert.NotContains(t, out, "example:\n")
 }
 
 func TestPrintIndex_ArgsOverride(t *testing.T) {
@@ -266,8 +271,8 @@ func TestPrintIndex_ArgsOverride(t *testing.T) {
 	PrintIndex(&buf, root)
 	out := buf.String()
 
-	// Tier 1 should use <text> not <text> from Cobra Use
-	assert.Contains(t, out, "add <text>  add a thing")
+	// AOF cmd record should use ArgsOverride <text>
+	assert.Contains(t, out, "cmd add <text> :: add a thing")
 	assert.NotContains(t, out, "add [content]")
 }
 
@@ -317,7 +322,7 @@ func TestPrintCommand_WithEnumFlag(t *testing.T) {
 	PrintCommand(&buf, root, cmd)
 	out := buf.String()
 
-	assert.Contains(t, out, "--type enum(fact|decision|pattern)")
+	assert.Contains(t, out, "--type:enum(fact|decision|pattern)")
 }
 
 func TestResolveCommand(t *testing.T) {
@@ -353,16 +358,18 @@ func TestFormatError(t *testing.T) {
 		var buf bytes.Buffer
 		FormatError(&buf, root, "ad")
 		out := buf.String()
-		assert.Contains(t, out, `error: unknown command "ad"`)
+		assert.Contains(t, out, "err unknown_cmd cmd=ad")
 		assert.Contains(t, out, `did you mean "add"`)
+		assert.Contains(t, out, "next tool --agent-help add")
 	})
 
 	t.Run("no close match", func(t *testing.T) {
 		var buf bytes.Buffer
 		FormatError(&buf, root, "zzzzzzz")
 		out := buf.String()
-		assert.Contains(t, out, `error: unknown command "zzzzzzz"`)
-		assert.Contains(t, out, "run ctx --agent-help for command list")
+		assert.Contains(t, out, "err unknown_cmd cmd=zzzzzzz")
+		assert.Contains(t, out, "run tool --agent-help for command list")
+		assert.Contains(t, out, "next tool --agent-help")
 	})
 }
 
@@ -390,11 +397,11 @@ func TestCollectFlagsDefaults(t *testing.T) {
 		}
 	}
 	require.NotNil(t, nameFlag)
-	assert.Contains(t, nameFlag.constraint, "[default: default-val]")
+	assert.Contains(t, nameFlag.defaultHint, "[default=default-val]")
 
 	for _, f := range flags {
 		if f.name == "count" || f.name == "verbose" {
-			assert.NotContains(t, f.constraint, "[default:")
+			assert.NotContains(t, f.defaultHint, "[default=")
 		}
 	}
 }
