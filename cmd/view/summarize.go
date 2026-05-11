@@ -3,6 +3,7 @@ package view
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -57,6 +58,13 @@ func runSummarize(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFNode(os.Stdout, summary, "created")
+		if archiveSources {
+			fmt.Fprintf(os.Stdout, "archived %d\n", len(args))
+		}
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(summary, "", "  ")

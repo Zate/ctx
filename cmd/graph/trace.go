@@ -3,6 +3,7 @@ package graph
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/cmd/internal/cmdutil"
@@ -98,6 +99,20 @@ func runTrace(cmd *cobra.Command, args []string) error {
 		_ = d.LogAccessBatch(ids, "graph_walk", cmdutil.Agent(cmd), "trace:"+args[0])
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		fmt.Fprintf(os.Stdout, "ok trace count=%d root=%s\n", len(results), id)
+		if len(results) > 0 {
+			fmt.Fprintln(os.Stdout, "@ depth id type summary")
+			for _, r := range results {
+				preview := r.Content
+				if len(preview) > 120 {
+					preview = preview[:120] + "…"
+				}
+				fmt.Fprintf(os.Stdout, "- %d %s %s %s\n", r.Depth, r.ID, r.Type, cmdutil.AOFQuote(preview))
+			}
+		}
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(results, "", "  ")
