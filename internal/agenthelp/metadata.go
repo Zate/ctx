@@ -52,11 +52,11 @@ var Registry = map[string]CommandMeta{
 		Notes:        "runs query immediately; --inject stores query in pending for next prompt-submit injection",
 	},
 	"delete": {
-		Priority: 15,
+		Priority: 16,
 		Example:  `ctx delete 01ABC123`,
 	},
 	"update": {
-		Priority: 16,
+		Priority: 17,
 		Example:  `ctx update 01ABC123 --content "updated content"`,
 	},
 
