@@ -3,6 +3,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
 	"github.com/zate/ctx/internal/db"
+	docpkg "github.com/zate/ctx/internal/doc"
 	"github.com/zate/ctx/internal/query"
 	"github.com/zate/ctx/internal/view"
 )
@@ -257,6 +259,55 @@ func registerTools(s *server.MCPServer) {
 			mcp.Description("Traversal depth (default: 1)"),
 		),
 	), handleRelated)
+
+	// Doc subsystem tools
+	s.AddTool(mcp.NewTool("ctx_doc_import",
+		mcp.WithDescription("Import a markdown file into the doc subsystem, decomposing it into a document node and content nodes"),
+		mcp.WithString("path",
+			mcp.Required(),
+			mcp.Description("Path to the markdown file to import"),
+		),
+	), handleDocImport)
+
+	s.AddTool(mcp.NewTool("ctx_doc_show",
+		mcp.WithDescription("Show metadata for a stored document node (ID, kind, src_hash, created/updated timestamps)"),
+		mcp.WithString("id",
+			mcp.Required(),
+			mcp.Description("Document node ID"),
+		),
+	), handleDocShow)
+
+	s.AddTool(mcp.NewTool("ctx_doc_export",
+		mcp.WithDescription("Recompose and return the full markdown content of a stored document"),
+		mcp.WithString("id",
+			mcp.Required(),
+			mcp.Description("Document node ID"),
+		),
+	), handleDocExport)
+
+	s.AddTool(mcp.NewTool("ctx_doc_search",
+		mcp.WithDescription("Search content node bodies in the doc subsystem (separate from memory FTS)"),
+		mcp.WithString("query",
+			mcp.Required(),
+			mcp.Description("Substring to search for in document content nodes"),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("Max results (default: 20)"),
+		),
+	), handleDocSearch)
+
+	s.AddTool(mcp.NewTool("ctx_doc_promote",
+		mcp.WithDescription("Promote a content node to a memory node, making it visible to recall and search"),
+		mcp.WithString("id",
+			mcp.Required(),
+			mcp.Description("Content node ID to promote"),
+		),
+		mcp.WithString("type",
+			mcp.Required(),
+			mcp.Description("Memory node type to assign"),
+			mcp.Enum("fact", "decision", "pattern", "observation", "hypothesis", "task", "summary", "source", "open-question"),
+		),
+	), handleDocPromote)
 
 	s.AddTool(mcp.NewTool("ctx_trace",
 		mcp.WithDescription("Trace the provenance chain of a node (DERIVED_FROM and DEPENDS_ON edges)"),
@@ -1019,6 +1070,159 @@ func handleTrace(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 }
 
 // helpers
+
+// ---------------------------------------------------------------------------
+// Doc subsystem handlers
+// ---------------------------------------------------------------------------
+
+func handleDocImport(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	path, err := req.RequireString("path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("read file: %v", err)), nil
+	}
+
+	d, err := mcpOpenDB()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("database error: %v", err)), nil
+	}
+	defer d.Close()
+
+	tree, err := docpkg.Decompose(src)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("decompose: %v", err)), nil
+	}
+
+	docID, err := docpkg.Persist(tree, src, d)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("persist: %v", err)), nil
+	}
+
+	composed, err := docpkg.ComposeDoc(docID, d)
+	if err != nil {
+		_ = d.DeleteNode(docID)
+		return mcp.NewToolResultError(fmt.Sprintf("round-trip check failed: %v", err)), nil
+	}
+	if !bytes.Equal(src, composed) {
+		_ = d.DeleteNode(docID)
+		return mcp.NewToolResultError(fmt.Sprintf("byte-identity check failed for %q", path)), nil
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("Imported %q as document %s (%d bytes)", path, docID, len(src))), nil
+}
+
+func handleDocShow(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	id, err := req.RequireString("id")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	d, err := mcpOpenDB()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("database error: %v", err)), nil
+	}
+	defer d.Close()
+
+	node, err := d.GetNode(id)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("node not found: %v", err)), nil
+	}
+
+	out := map[string]interface{}{
+		"id":         node.ID,
+		"kind":       node.Kind,
+		"created_at": node.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		"updated_at": node.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		"metadata":   node.Metadata,
+	}
+	data, _ := json.MarshalIndent(out, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func handleDocExport(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	id, err := req.RequireString("id")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	d, err := mcpOpenDB()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("database error: %v", err)), nil
+	}
+	defer d.Close()
+
+	composed, err := docpkg.ComposeDoc(id, d)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("compose error: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText(string(composed)), nil
+}
+
+func handleDocSearch(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	queryStr, err := req.RequireString("query")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	limit := 20
+	if l, ok := req.GetArguments()["limit"].(float64); ok && l > 0 {
+		limit = int(l)
+	}
+
+	d, err := mcpOpenDB()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("database error: %v", err)), nil
+	}
+	defer d.Close()
+
+	nodes, err := docpkg.SearchContent(queryStr, limit, d)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("search error: %v", err)), nil
+	}
+
+	if len(nodes) == 0 {
+		return mcp.NewToolResultText("No results found."), nil
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Found %d result(s):\n\n", len(nodes))
+	for _, n := range nodes {
+		preview := n.Content
+		if len(preview) > 200 {
+			preview = preview[:200] + "…"
+		}
+		fmt.Fprintf(&b, "### [%s]\n%s\n\n---\n\n", n.ID, preview)
+	}
+	return mcp.NewToolResultText(b.String()), nil
+}
+
+func handleDocPromote(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	id, err := req.RequireString("id")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	nodeType, err := req.RequireString("type")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	d, err := mcpOpenDB()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("database error: %v", err)), nil
+	}
+	defer d.Close()
+
+	if err := docpkg.PromoteNode(id, nodeType, d); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("promote error: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("Promoted %s to memory/%s", id, nodeType)), nil
+}
 
 func splitAndTrim(s string) []string {
 	parts := strings.Split(s, ",")
