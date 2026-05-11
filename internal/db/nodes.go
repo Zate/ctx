@@ -26,6 +26,7 @@ var validNodeTypes = map[string]bool{
 type Node struct {
 	ID            string    `json:"id"`
 	Type          string    `json:"type"`
+	Kind          string    `json:"kind,omitempty"` // "memory" (default), "document", "content"
 	Content       string    `json:"content"`
 	Summary       *string   `json:"summary,omitempty"`
 	TokenEstimate int       `json:"token_estimate"`
@@ -36,8 +37,18 @@ type Node struct {
 	Tags          []string  `json:"tags,omitempty"`
 }
 
+// NodeKindMemory is the default kind for regular memory nodes.
+const NodeKindMemory = "memory"
+
+// NodeKindDocument is the kind for document container nodes.
+const NodeKindDocument = "document"
+
+// NodeKindContent is the kind for document chunk nodes.
+const NodeKindContent = "content"
+
 type CreateNodeInput struct {
 	Type     string
+	Kind     string // defaults to "memory" if empty
 	Content  string
 	Summary  *string
 	Metadata string
@@ -52,11 +63,11 @@ type UpdateNodeInput struct {
 }
 
 type ListOptions struct {
-	Type    string
-	Tag     string   // Deprecated: use Tags for multi-tag filtering
-	Tags    []string // Filter by multiple tags (AND logic)
-	Since   *time.Time
-	Limit   int
+	Type              string
+	Tag               string   // Deprecated: use Tags for multi-tag filtering
+	Tags              []string // Filter by multiple tags (AND logic)
+	Since             *time.Time
+	Limit             int
 	IncludeSuperseded bool
 }
 
@@ -70,6 +81,11 @@ func (d *SQLiteStore) CreateNode(input CreateNodeInput) (*Node, error) {
 	}
 	if strings.TrimSpace(input.Content) == "" {
 		return nil, fmt.Errorf("content cannot be empty")
+	}
+
+	kind := input.Kind
+	if kind == "" {
+		kind = NodeKindMemory
 	}
 
 	id := NewID()
@@ -92,9 +108,9 @@ func (d *SQLiteStore) CreateNode(input CreateNodeInput) (*Node, error) {
 		summary = sql.NullString{String: *input.Summary, Valid: true}
 	}
 
-	_, err = tx.Exec(`INSERT INTO nodes (id, type, content, summary, token_estimate, created_at, updated_at, metadata)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, input.Type, input.Content, summary, tokenEst, nowStr, nowStr, metadata)
+	_, err = tx.Exec(`INSERT INTO nodes (id, type, kind, content, summary, token_estimate, created_at, updated_at, metadata)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, input.Type, kind, input.Content, summary, tokenEst, nowStr, nowStr, metadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create node: %w", err)
 	}
@@ -114,6 +130,7 @@ func (d *SQLiteStore) CreateNode(input CreateNodeInput) (*Node, error) {
 	return &Node{
 		ID:            id,
 		Type:          input.Type,
+		Kind:          kind,
 		Content:       input.Content,
 		Summary:       input.Summary,
 		TokenEstimate: tokenEst,
@@ -190,9 +207,9 @@ func (d *SQLiteStore) GetNode(id string) (*Node, error) {
 	var summary, supersededBy sql.NullString
 	var createdAt, updatedAt string
 
-	err := d.db.QueryRow(`SELECT id, type, content, summary, token_estimate, superseded_by, created_at, updated_at, metadata
+	err := d.db.QueryRow(`SELECT id, type, kind, content, summary, token_estimate, superseded_by, created_at, updated_at, metadata
 		FROM nodes WHERE id = ?`, id).Scan(
-		&node.ID, &node.Type, &node.Content, &summary, &node.TokenEstimate,
+		&node.ID, &node.Type, &node.Kind, &node.Content, &summary, &node.TokenEstimate,
 		&supersededBy, &createdAt, &updatedAt, &node.Metadata)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -278,8 +295,8 @@ func (d *SQLiteStore) DeleteNode(id string) error {
 	return nil
 }
 
-func (d *SQLiteStore) ListNodes(opts ListOptions) ([]*Node, error) {
-	query := `SELECT n.id, n.type, n.content, n.summary, n.token_estimate, n.superseded_by, n.created_at, n.updated_at, n.metadata
+func (d *SQLiteStore) listNodesWithKindFilter(opts ListOptions, kindFilter string) ([]*Node, error) {
+	query := `SELECT n.id, n.type, n.kind, n.content, n.summary, n.token_estimate, n.superseded_by, n.created_at, n.updated_at, n.metadata
 		FROM nodes n`
 	var conditions []string
 	var args []interface{}
@@ -287,16 +304,20 @@ func (d *SQLiteStore) ListNodes(opts ListOptions) ([]*Node, error) {
 	if !opts.IncludeSuperseded {
 		conditions = append(conditions, "n.superseded_by IS NULL")
 	}
+	if kindFilter != "" {
+		conditions = append(conditions, "n.kind = ?")
+		args = append(args, kindFilter)
+	}
 	if opts.Type != "" {
 		conditions = append(conditions, "n.type = ?")
 		args = append(args, opts.Type)
 	}
 	// Merge single Tag into Tags for backwards compatibility
-	tags := opts.Tags
+	tagList := opts.Tags
 	if opts.Tag != "" {
-		tags = append(tags, opts.Tag)
+		tagList = append(tagList, opts.Tag)
 	}
-	for i, tag := range tags {
+	for i, tag := range tagList {
 		alias := fmt.Sprintf("t%d", i)
 		query += fmt.Sprintf(" JOIN tags %s ON n.id = %s.node_id", alias, alias)
 		conditions = append(conditions, fmt.Sprintf("%s.tag = ?", alias))
@@ -328,7 +349,7 @@ func (d *SQLiteStore) ListNodes(opts ListOptions) ([]*Node, error) {
 		var summary, supersededBy sql.NullString
 		var createdAt, updatedAt string
 
-		err := rows.Scan(&node.ID, &node.Type, &node.Content, &summary, &node.TokenEstimate,
+		err := rows.Scan(&node.ID, &node.Type, &node.Kind, &node.Content, &summary, &node.TokenEstimate,
 			&supersededBy, &createdAt, &updatedAt, &node.Metadata)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan node: %w", err)
@@ -351,8 +372,21 @@ func (d *SQLiteStore) ListNodes(opts ListOptions) ([]*Node, error) {
 	return nodes, nil
 }
 
+// ListNodes returns all nodes (no kind filter). For memory-path surfaces,
+// prefer ListMemoryNodes which implicitly scopes to kind='memory'.
+func (d *SQLiteStore) ListNodes(opts ListOptions) ([]*Node, error) {
+	return d.listNodesWithKindFilter(opts, "")
+}
+
+// ListMemoryNodes returns only kind='memory' nodes (the safe default for all
+// memory-path surfaces: list, status, tags, query, view).
+func (d *SQLiteStore) ListMemoryNodes(opts ListOptions) ([]*Node, error) {
+	return d.listNodesWithKindFilter(opts, NodeKindMemory)
+}
+
 func (d *SQLiteStore) Search(query string) ([]*Node, error) {
-	rows, err := d.db.Query(`SELECT n.id, n.type, n.content, n.summary, n.token_estimate, n.superseded_by, n.created_at, n.updated_at, n.metadata
+	// FTS only indexes kind='memory' rows (enforced by triggers), so no extra filter needed.
+	rows, err := d.db.Query(`SELECT n.id, n.type, n.kind, n.content, n.summary, n.token_estimate, n.superseded_by, n.created_at, n.updated_at, n.metadata
 		FROM nodes n
 		JOIN nodes_fts f ON n.rowid = f.rowid
 		WHERE nodes_fts MATCH ?
@@ -368,7 +402,7 @@ func (d *SQLiteStore) Search(query string) ([]*Node, error) {
 		var summary, supersededBy sql.NullString
 		var createdAt, updatedAt string
 
-		err := rows.Scan(&node.ID, &node.Type, &node.Content, &summary, &node.TokenEstimate,
+		err := rows.Scan(&node.ID, &node.Type, &node.Kind, &node.Content, &summary, &node.TokenEstimate,
 			&supersededBy, &createdAt, &updatedAt, &node.Metadata)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan node: %w", err)

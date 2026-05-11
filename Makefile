@@ -1,4 +1,5 @@
-.PHONY: test test-unit test-fuzz build install clean mcp-config build-all lint
+.PHONY: build build-all install clean lint mcp-config \
+	test test-integration test-all test-doc test-fuzz test-coverage
 
 BINARY_NAME := ctx
 DIST_DIR := dist
@@ -29,21 +30,33 @@ $(PLATFORMS):
 install: build
 	./$(BINARY_NAME) install --bin-dir ~/.local/bin
 
-# All tests
+# ---------------------------------------------------------------------------
+# Tests
+#
+#   test              fast unit tests (default — no build tags)
+#   test-integration  unit + integration tests that exec the built binary
+#   test-all          alias for test-integration
+#   test-doc          doc package round-trip subset
+#   test-fuzz         query parser fuzz run
+#   test-coverage     coverage profile + HTML report (includes integration)
+# ---------------------------------------------------------------------------
+
 test:
-	go test -v ./...
+	go test ./...
 
-# Unit tests only
-test-unit:
-	go test -v -short ./internal/...
+test-integration:
+	go test -tags=integration ./...
 
-# Fuzz testing
+test-all: test-integration
+
+test-doc:
+	go test -run 'TestCorpus|TestCompose' ./internal/doc/...
+
 test-fuzz:
 	go test -fuzz=FuzzQueryParser -fuzztime=30s ./internal/query/
 
-# Coverage
 test-coverage:
-	go test -coverprofile=coverage.out ./...
+	go test -tags=integration -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 

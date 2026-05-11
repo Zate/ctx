@@ -15,6 +15,8 @@ type Store interface {
 	UpdateNode(id string, input UpdateNodeInput) (*Node, error)
 	DeleteNode(id string) error
 	ListNodes(opts ListOptions) ([]*Node, error)
+	// ListMemoryNodes returns only kind='memory' nodes (safe default for all memory-path surfaces).
+	ListMemoryNodes(opts ListOptions) ([]*Node, error)
 	Search(query string) ([]*Node, error)
 	ResolveID(prefix string) (string, error)
 	FindByTypeAndContent(nodeType, content string) (*Node, error)
@@ -35,6 +37,15 @@ type Store interface {
 	ListAllTags() ([]string, error)
 	ListTagsByPrefix(prefix string) ([]string, error)
 	GetNodesByTag(tag string) ([]*Node, error)
+
+	// --- Access log operations ---
+	// LogAccess and LogAccessBatch silently no-op for non-memory nodes
+	// (kind!='memory') and unknown IDs; the kind='memory' guard is enforced
+	// at the DB layer so call sites do not need to filter.
+
+	LogAccess(nodeID, accessType, agent, queryContext string) error
+	LogAccessBatch(nodeIDs []string, accessType, agent, queryContext string) error
+	QueryAccess(opts AccessLogQuery) ([]*AccessEntry, error)
 
 	// --- Pending operations ---
 

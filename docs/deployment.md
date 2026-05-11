@@ -4,7 +4,7 @@ This guide covers deploying `ctx serve` as a persistent service with PostgreSQL.
 
 ## Prerequisites
 
-- ctx binary (built from source or downloaded from [releases](https://github.com/Zate/Memdown/releases))
+- ctx binary (built from source or downloaded from [releases](https://github.com/Zate/ctx/releases))
 - PostgreSQL 14+ instance
 - (Optional) TLS certificate and key
 

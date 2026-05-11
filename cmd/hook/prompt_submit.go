@@ -88,6 +88,14 @@ func runPromptSubmit(cmd *cobra.Command, args []string) error {
 			// Filter by agent partition
 			nodes = filterNodesByAgent(nodes, currentAgent)
 
+			if len(nodes) > 0 {
+				ids := make([]string, len(nodes))
+				for i, n := range nodes {
+					ids[i] = n.ID
+				}
+				_ = d.LogAccessBatch(ids, "explicit_query", currentAgent, "recall:"+recallQuery)
+			}
+
 			var b strings.Builder
 			fmt.Fprintf(&b, "## Recall Results\n\nQuery: `%s`\n\n", recallQuery)
 			if len(nodes) == 0 {

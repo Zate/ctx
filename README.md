@@ -350,7 +350,7 @@ ctx
 - `gopkg.in/yaml.v3` — Server config parsing
 - `github.com/stretchr/testify` — Test assertions
 
-**Database:** SQLite at `~/.ctx/store.db` (local) or PostgreSQL (remote server). Schema includes `nodes`, `edges`, `tags`, `views`, `pending`, `users`, `devices`, `repo_mappings`, `sync_log`, `schema_version` tables and FTS5 full-text search (SQLite only).
+**Database:** SQLite at `~/.ctx/store.db` (local) or PostgreSQL (remote server). Schema includes `nodes`, `edges`, `tags`, `views`, `pending`, `users`, `devices`, `repo_mappings`, `sync_log`, `access_log`, `schema_version` tables and FTS5 full-text search (SQLite only).
 
 ## Cross-Platform Builds
 
@@ -369,16 +369,16 @@ Releases are automated via GoReleaser on tagged commits.
 ## Development
 
 ```bash
-# Run all tests
+# Fast unit tests (default)
 make test
 
-# Unit tests only
-make test-unit
+# Add integration tests that exec the built binary
+make test-integration
 
 # Fuzz testing (query parser)
 make test-fuzz
 
-# Coverage report
+# Coverage report (includes integration)
 make test-coverage
 
 # Build
@@ -393,13 +393,13 @@ make clean
 
 ## Design Documents
 
-The `ctx-*.md` files in the repository root contain the full specification and design:
+The `docs/design/` directory contains the full specification and design:
 
-- **ctx-specification.md** — Technical spec: schema, commands, query language, hooks
-- **ctx-implementation-prompt.md** — Implementation roadmap (8 phases)
-- **ctx-details.md** — Detailed implementation decisions and edge cases
-- **ctx-testing.md** — Testing strategy with example test code
-- **ctx-skill-SKILL.md** — The skill file installed for Claude Code
+- **docs/design/ctx-specification.md** — Technical spec: schema, commands, query language, hooks
+- **docs/design/ctx-implementation-prompt.md** — Implementation roadmap (8 phases)
+- **docs/design/ctx-details.md** — Detailed implementation decisions and edge cases
+- **docs/design/ctx-testing.md** — Testing strategy with example test code
+- **docs/design/ctx-skill-SKILL.md** — The skill file installed for Claude Code
 
 ## License
 

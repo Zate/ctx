@@ -438,4 +438,3 @@ var deviceMgmtTmpl = template.Must(template.New("devices").Parse(`<!DOCTYPE html
 {{else}}<div class="empty">No devices registered. Use <code>ctx auth</code> from a device to register.</div>{{end}}
 </div>
 </body></html>`))
-

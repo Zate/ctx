@@ -1,16 +1,22 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
-	agentpkg "github.com/zate/ctx/internal/agent"
-	"github.com/zate/ctx/internal/agenthelp"
+	doccmd "github.com/zate/ctx/cmd/doc"
+	graphcmd "github.com/zate/ctx/cmd/graph"
 	"github.com/zate/ctx/cmd/hook"
-	"github.com/zate/ctx/internal/db"
+	iocmd "github.com/zate/ctx/cmd/io"
+	mcpcmd "github.com/zate/ctx/cmd/mcp"
+	nodecmd "github.com/zate/ctx/cmd/node"
+	servercmd "github.com/zate/ctx/cmd/server"
+	systemcmd "github.com/zate/ctx/cmd/system"
+	tagcmd "github.com/zate/ctx/cmd/tag"
+	viewcmd "github.com/zate/ctx/cmd/view"
+	"github.com/zate/ctx/internal/agenthelp"
 )
 
 var (
@@ -48,6 +54,15 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&agentHelp, "agent-help", false, "Token-optimized help for LLM agents")
 	rootCmd.SetHelpTemplate(rootCmd.HelpTemplate() + "\nLLM agent? Use --agent-help for token-optimized usage.\n")
 	rootCmd.AddCommand(hook.HookCmd)
+	mcpcmd.Register(rootCmd)
+	servercmd.Register(rootCmd)
+	graphcmd.Register(rootCmd)
+	tagcmd.Register(rootCmd)
+	iocmd.Register(rootCmd)
+	nodecmd.Register(rootCmd)
+	viewcmd.Register(rootCmd)
+	systemcmd.Register(rootCmd)
+	doccmd.Register(rootCmd)
 }
 
 func Execute() error {
@@ -105,42 +120,4 @@ func isGlobalFlag(arg string) (skip bool, consumesNext bool) {
 		}
 	}
 	return false, false
-}
-
-func openDB() (db.Store, error) {
-	switch backend {
-	case "postgres", "postgresql":
-		d, err := db.OpenPostgres(dbPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open postgres database: %w", err)
-		}
-		return d, nil
-	case "sqlite", "":
-		d, err := db.Open(dbPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open database: %w", err)
-		}
-		return d, nil
-	default:
-		return nil, fmt.Errorf("unknown backend %q: use 'sqlite' or 'postgres'", backend)
-	}
-}
-
-// resolveArg resolves a node ID prefix to a full ID using the database.
-func resolveArg(d db.Store, prefix string) (string, error) {
-	resolved, err := d.ResolveID(prefix)
-	if err != nil {
-		return "", fmt.Errorf("cannot resolve ID %q: %w", prefix, err)
-	}
-	return resolved, nil
-}
-
-// agentTag returns the agent tag string for the current agent, or empty if no agent is set.
-func agentTag() string {
-	return agentpkg.Tag(agent)
-}
-
-// filterNodesByAgent filters a slice of nodes to only include those visible to the current agent.
-func filterNodesByAgent(nodes []*db.Node) []*db.Node {
-	return agentpkg.FilterNodes(nodes, agent)
 }

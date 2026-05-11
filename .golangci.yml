@@ -1,0 +1,41 @@
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags:
+    - integration
+
+linters:
+  default: none
+  enable:
+    - errcheck      # unchecked errors
+    - govet         # suspicious constructs
+    - ineffassign   # ineffective assignments
+    - staticcheck   # broad correctness + style
+    - unused        # unused identifiers
+    - misspell      # common misspellings
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+
+  exclusions:
+    rules:
+      # Deferred / cleanup Close and Rollback calls — the standard idiom is
+      # to ignore the error.
+      - linters: [errcheck]
+        text: "Error return value of `[^`]*\\.(Close|Rollback)` is not checked"
+
+      # Tests are looser on errcheck and unused.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - unused
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

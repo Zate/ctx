@@ -169,7 +169,7 @@ The auth system uses OIDC with custom claims.
 			want:  []CtxCommand{},
 		},
 		{
-			name: "quotes in content",
+			name:  "quotes in content",
 			input: `<ctx:remember type="fact">User said "hello world"</ctx:remember>`,
 			want: []CtxCommand{
 				{
@@ -180,7 +180,7 @@ The auth system uses OIDC with custom claims.
 			},
 		},
 		{
-			name: "unicode content",
+			name:  "unicode content",
 			input: `<ctx:remember type="fact">User speaks 日本語 and uses emoji 🚀</ctx:remember>`,
 			want: []CtxCommand{
 				{
@@ -191,7 +191,7 @@ The auth system uses OIDC with custom claims.
 			},
 		},
 		{
-			name: "real command after code block example",
+			name:  "real command after code block example",
 			input: "Here's an example:\n```xml\n<ctx:remember type=\"fact\">ignored</ctx:remember>\n```\n\n<ctx:remember type=\"fact\">This is real</ctx:remember>",
 			want: []CtxCommand{
 				{

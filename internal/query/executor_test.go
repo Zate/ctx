@@ -177,8 +177,8 @@ func TestExecuteQuery_TokensFilter(t *testing.T) {
 	d := testutil.SetupTestDB(t)
 
 	// Token estimates are len(content)/4
-	createNode(t, d, "fact", "short", nil)                                    // ~1 token
-	createNode(t, d, "fact", strings.Repeat("x", 400), nil)                   // ~100 tokens
+	createNode(t, d, "fact", "short", nil)                  // ~1 token
+	createNode(t, d, "fact", strings.Repeat("x", 400), nil) // ~100 tokens
 
 	nodes, err := query.ExecuteQuery(d, "tokens:<50", false)
 	require.NoError(t, err)

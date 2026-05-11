@@ -116,7 +116,7 @@ func TestReadAssistantResponsesFromOffset_SkipsNonAssistant(t *testing.T) {
 			},
 		},
 		{
-			"type": "file-history-snapshot",
+			"type":     "file-history-snapshot",
 			"snapshot": map[string]any{},
 		},
 	}

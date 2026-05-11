@@ -63,6 +63,10 @@ func executeRemember(d db.Store, cmd CtxCommand) error {
 	if content == "" {
 		return fmt.Errorf("remember: content is required")
 	}
+	// remember always creates memory-kind nodes; refuse any explicit non-memory kind.
+	if k, ok := cmd.Attrs["kind"]; ok && k != "" && k != db.NodeKindMemory {
+		return fmt.Errorf("remember: cannot create non-memory nodes (got kind=%q); use ctx doc for documents", k)
+	}
 
 	var tags []string
 	if tagStr, ok := cmd.Attrs["tags"]; ok && tagStr != "" {
@@ -232,15 +236,15 @@ func executeStatus(d db.Store) error {
 	agentFilter := agentpkg.FilterSQL(currentAgent)
 
 	var totalNodes, totalTokens, edgeCount, tagCount int
-	_ = d.QueryRow("SELECT COUNT(*) FROM nodes n WHERE n.superseded_by IS NULL" + agentFilter).Scan(&totalNodes)
-	_ = d.QueryRow("SELECT COALESCE(SUM(n.token_estimate), 0) FROM nodes n WHERE n.superseded_by IS NULL" + agentFilter).Scan(&totalTokens)
+	_ = d.QueryRow("SELECT COUNT(*) FROM nodes n WHERE n.kind = 'memory' AND n.superseded_by IS NULL" + agentFilter).Scan(&totalNodes)
+	_ = d.QueryRow("SELECT COALESCE(SUM(n.token_estimate), 0) FROM nodes n WHERE n.kind = 'memory' AND n.superseded_by IS NULL" + agentFilter).Scan(&totalTokens)
 	_ = d.QueryRow("SELECT COUNT(*) FROM edges").Scan(&edgeCount)
 	_ = d.QueryRow("SELECT COUNT(DISTINCT tag) FROM tags").Scan(&tagCount)
 
 	status := fmt.Sprintf("Nodes: %d (%d tokens), Edges: %d, Tags: %d unique", totalNodes, totalTokens, edgeCount, tagCount)
 
 	// Add type breakdown
-	rows, err := d.Query("SELECT n.type, COUNT(*) FROM nodes n WHERE n.superseded_by IS NULL" + agentFilter + " GROUP BY n.type ORDER BY n.type")
+	rows, err := d.Query("SELECT n.type, COUNT(*) FROM nodes n WHERE n.kind = 'memory' AND n.superseded_by IS NULL" + agentFilter + " GROUP BY n.type ORDER BY n.type")
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -253,7 +257,6 @@ func executeStatus(d db.Store) error {
 
 	return d.SetPending("status_output", status)
 }
-
 
 func executeTask(d db.Store, cmd CtxCommand) error {
 	name := cmd.Attrs["name"]

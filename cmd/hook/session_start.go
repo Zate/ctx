@@ -159,6 +159,14 @@ func runSessionStart(cmd *cobra.Command, args []string) error {
 
 	result.LastSessionStores = lastStores
 
+	if len(result.Nodes) > 0 {
+		ids := make([]string, len(result.Nodes))
+		for i, n := range result.Nodes {
+			ids[i] = n.ID
+		}
+		_ = d.LogAccessBatch(ids, "hook_inject", effectiveAgent, "session-start")
+	}
+
 	// Load custom primer if specified, otherwise use built-in
 	if sessionStartPrimerFile != "" {
 		data, err := os.ReadFile(sessionStartPrimerFile)
