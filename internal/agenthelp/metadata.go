@@ -45,6 +45,12 @@ var Registry = map[string]CommandMeta{
 		Priority: 14,
 		Example:  `ctx search "database migration"`,
 	},
+	"recall": {
+		Priority:     15,
+		ArgsOverride: "<query>",
+		Example:      `ctx recall 'type:fact AND tag:tier:reference' --inject`,
+		Notes:        "runs query immediately; --inject stores query in pending for next prompt-submit injection",
+	},
 	"delete": {
 		Priority: 15,
 		Example:  `ctx delete 01ABC123`,

@@ -307,6 +307,10 @@ func runDocImport(cmd *cobra.Command, args []string) error {
 			path, len(src), len(composed), firstDiffOffset(src, composed))
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "doc_imported", "id", docID, "path", cmdutil.AOFQuote(path), "bytes", fmt.Sprintf("%d", len(src)))
+		return nil
+	}
 	fmt.Printf("Imported: %s  (doc=%s, %d bytes)\n", path, docID, len(src))
 	return nil
 }
@@ -361,6 +365,15 @@ func runDocShow(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		fmt.Fprintf(os.Stdout, "ok doc id=%s kind=%s\n", node.ID, node.Kind)
+		fmt.Fprintf(os.Stdout, "created %s\n", node.CreatedAt.Format("2006-01-02T15:04:05Z"))
+		fmt.Fprintf(os.Stdout, "updated %s\n", node.UpdatedAt.Format("2006-01-02T15:04:05Z"))
+		if srcHash, ok := meta["src_hash"].(string); ok {
+			fmt.Fprintf(os.Stdout, "src_hash %s\n", srcHash)
+		}
+		return nil
+	}
 	fmt.Printf("ID:         %s\n", node.ID)
 	fmt.Printf("Kind:       %s\n", node.Kind)
 	fmt.Printf("Created:    %s\n", node.CreatedAt.Format("2006-01-02T15:04:05Z"))
@@ -489,6 +502,20 @@ func runDocSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc search: %w", err)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		fmt.Fprintf(os.Stdout, "ok doc_search count=%d query=%s\n", len(nodes), cmdutil.AOFQuote(query))
+		if len(nodes) > 0 {
+			fmt.Fprintln(os.Stdout, "@ id summary")
+			for _, n := range nodes {
+				preview := n.Content
+				if len(preview) > 120 {
+					preview = preview[:120] + "…"
+				}
+				fmt.Fprintf(os.Stdout, "- %s %s\n", n.ID, cmdutil.AOFQuote(preview))
+			}
+		}
+		return nil
+	}
 	switch cmdutil.Format(cmd) {
 	case "json":
 		data, _ := json.MarshalIndent(nodes, "", "  ")
@@ -527,6 +554,10 @@ func runDocMv(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc mv: %w", err)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "doc_mv", "id", nodeID, "doc", docMvDocID, "pos", fmt.Sprintf("%d", docMvToPos))
+		return nil
+	}
 	fmt.Fprintf(os.Stderr, "Moved node %s to position %d in document %s\n", nodeID, docMvToPos, docMvDocID)
 	return nil
 }
@@ -550,6 +581,10 @@ func runDocInsert(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc insert: %w", insertErr)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "doc_inserted", "id", nodeID, "doc", docInsertDocID, "pos", fmt.Sprintf("%d", docInsertPos))
+		return nil
+	}
 	fmt.Fprintf(os.Stderr, "Inserted node %s at position %d in document %s\n", nodeID, docInsertPos, docInsertDocID)
 	return nil
 }
@@ -567,6 +602,10 @@ func runDocRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc remove: %w", err)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "doc_removed", "id", nodeID, "doc", docRemoveDocID)
+		return nil
+	}
 	fmt.Fprintf(os.Stderr, "Removed node %s from document %s (content node preserved)\n", nodeID, docRemoveDocID)
 	return nil
 }
@@ -589,6 +628,10 @@ func runDocFork(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc fork: %w", err)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "doc_forked", "from", docID, "id", forkID)
+		return nil
+	}
 	fmt.Printf("Forked: %s → %s\n", docID, forkID)
 	return nil
 }
@@ -606,6 +649,10 @@ func runDocSplit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc split: %w", err)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "doc_split", "id", nodeID, "doc", docSplitDocID, "at", fmt.Sprintf("%d", docSplitOffset))
+		return nil
+	}
 	fmt.Fprintf(os.Stderr, "Split node %s at offset %d in document %s\n", nodeID, docSplitOffset, docSplitDocID)
 	return nil
 }
@@ -631,6 +678,10 @@ func runDocPromote(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc promote: %w", err)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "doc_promoted", "id", nodeID, "type", docPromoteType)
+		return nil
+	}
 	fmt.Printf("Promoted %s → memory/%s\n", nodeID, docPromoteType)
 	return nil
 }
@@ -658,6 +709,10 @@ func runDocInline(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("doc inline: %w", err)
 	}
 
+	if cmdutil.AgentOut(cmd) {
+		cmdutil.AOFOk(os.Stdout, "doc_inlined", "memory", docInlineMemoryID, "doc", docID, "pos", fmt.Sprintf("%d", pos))
+		return nil
+	}
 	fmt.Printf("Inlined %s into %s at pos %d\n", docInlineMemoryID, docID, pos)
 	return nil
 }
