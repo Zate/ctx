@@ -66,7 +66,11 @@ func runList(cmd *cobra.Command, args []string) error {
 	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "list")
 
 	if cmdutil.AgentOut(cmd) {
-		cmdutil.AOFNodes(os.Stdout, nodes, false)
+		more := listLimit > 0 && len(nodes) >= listLimit
+		cmdutil.AOFNodes(os.Stdout, nodes, more)
+		if more {
+			fmt.Fprintf(os.Stdout, "next ctx list --limit %d\n", listLimit)
+		}
 		return nil
 	}
 	switch cmdutil.Format(cmd) {

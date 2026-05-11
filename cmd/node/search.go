@@ -9,6 +9,8 @@ import (
 	"github.com/zate/ctx/cmd/internal/cmdutil"
 )
 
+var searchLimit int
+
 var searchCmd = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Full-text search",
@@ -17,6 +19,7 @@ var searchCmd = &cobra.Command{
 }
 
 func init() {
+	searchCmd.Flags().IntVar(&searchLimit, "limit", 0, "Limit results (0 = no limit)")
 	register(searchCmd)
 }
 
@@ -35,10 +38,20 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	// Filter by agent partition
 	nodes = cmdutil.FilterNodesByAgent(cmd, nodes)
 
+	// Apply limit after filtering
+	more := false
+	if searchLimit > 0 && len(nodes) > searchLimit {
+		nodes = nodes[:searchLimit]
+		more = true
+	}
+
 	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "search:"+args[0])
 
 	if cmdutil.AgentOut(cmd) {
-		cmdutil.AOFNodes(os.Stdout, nodes, false)
+		cmdutil.AOFNodes(os.Stdout, nodes, more)
+		if more {
+			fmt.Fprintf(os.Stdout, "next ctx search %s --limit %d\n", args[0], searchLimit)
+		}
 		return nil
 	}
 	switch cmdutil.Format(cmd) {

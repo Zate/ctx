@@ -20,8 +20,11 @@ var queryCmd = &cobra.Command{
 	RunE:  runQuery,
 }
 
+var queryLimit int
+
 func init() {
 	queryCmd.Flags().BoolVar(&includeSuperseded, "include-superseded", false, "Include superseded nodes")
+	queryCmd.Flags().IntVar(&queryLimit, "limit", 0, "Limit results (0 = no limit)")
 	register(queryCmd)
 }
 
@@ -40,10 +43,20 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	// Filter by agent partition
 	nodes = cmdutil.FilterNodesByAgent(cmd, nodes)
 
+	// Apply limit after filtering
+	more := false
+	if queryLimit > 0 && len(nodes) > queryLimit {
+		nodes = nodes[:queryLimit]
+		more = true
+	}
+
 	cmdutil.LogAccessNodes(cmd, d, nodes, "explicit_query", "query:"+args[0])
 
 	if cmdutil.AgentOut(cmd) {
-		cmdutil.AOFNodes(os.Stdout, nodes, false)
+		cmdutil.AOFNodes(os.Stdout, nodes, more)
+		if more {
+			fmt.Fprintf(os.Stdout, "next ctx query %s --limit %d\n", args[0], queryLimit)
+		}
 		return nil
 	}
 	switch cmdutil.Format(cmd) {
