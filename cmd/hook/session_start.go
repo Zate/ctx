@@ -29,7 +29,7 @@ func init() {
 	sessionStartCmd.Flags().StringVar(&sessionStartProject, "project", "", "Current project name for scoped context loading")
 	sessionStartCmd.Flags().StringVar(&sessionStartAgent, "agent", "", "Agent identity for scoped memory (overrides global --agent)")
 	sessionStartCmd.Flags().StringVar(&sessionStartPrimerFile, "primer-file", "", "Path to a markdown file with usage instructions to inject (replaces the built-in primer)")
-	sessionStartCmd.Flags().BoolVar(&sessionStartFailClosed, "fail-closed", false, "If --project is empty, load zero nodes instead of every pinned node globally")
+	sessionStartCmd.Flags().BoolVar(&sessionStartFailClosed, "fail-closed", true, "If --project is empty, load zero nodes instead of every pinned node globally")
 }
 
 func runSessionStart(cmd *cobra.Command, args []string) error {

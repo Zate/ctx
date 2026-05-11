@@ -56,6 +56,10 @@ func Compose(d db.Store, opts ComposeOptions) (*ComposeResult, error) {
 		}
 	} else if opts.SeedID != "" {
 		// Traverse graph from seed node
+		// Guard against common shell-expansion mistakes (e.g. --depth=2 parsed as seed)
+		if strings.HasPrefix(opts.SeedID, "-") {
+			return nil, fmt.Errorf("seed ID %q looks like a flag — seed must be a bare node ID (e.g. 01ABC123); check flag ordering in your command", opts.SeedID)
+		}
 		resolved, resolveErr := d.ResolveID(opts.SeedID)
 		if resolveErr != nil {
 			return nil, fmt.Errorf("failed to resolve seed ID %q: %w", opts.SeedID, resolveErr)
