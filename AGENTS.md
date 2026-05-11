@@ -12,13 +12,19 @@ This is `ctx`, a Go CLI that provides persistent memory for Claude Code agents. 
 
 | Path | What It Does |
 |------|-------------|
-| `cmd/*.go` | CLI commands (Cobra). One file per command, each registers itself in `init()` via `rootCmd.AddCommand()`. |
+| `cmd/root.go` | Root Cobra command, global flags, subpackage registration. |
+| `cmd/version.go` | Forwards `SetVersionInfo` to `cmd/system` (keeps public surface stable). |
+| `cmd/node/` | Node CRUD commands: `add`, `show`, `list`, `update`, `delete`, `search`, `query`. |
+| `cmd/tag/` | Tagging commands: `tag`, `tags`, `untag`. |
+| `cmd/graph/` | Graph commands: `link`, `unlink`, `related`, `trace`, plus the `edges` listing. |
+| `cmd/view/` | Context composition: `compose`, `summarize`. |
+| `cmd/io/` | Import/export/ingest commands. |
+| `cmd/doc/` | `ctx doc` markdown decomposition subsystem commands. |
+| `cmd/system/` | System commands: `init`, `install`, `status`, `accessed`, `version`. |
+| `cmd/server/` | Remote-server commands: `serve`, `auth`, `sync`, `remote`, `device`. |
 | `cmd/hook/` | Hook subcommands: `session-start`, `prompt-submit`, `stop`, plus `autosync.go`. |
-| `cmd/install.go` | Legacy installer. Deprecated — installation is now plugin-based. `ctx init` only creates the database. |
-| `cmd/serve.go`, `auth.go`, `sync.go`, `remote.go`, `device.go` | Remote-server, device-flow auth, sync push/pull, and remote configuration commands. |
-| `cmd/doc.go` | Entry point for the `ctx doc` markdown decomposition subsystem. |
-| `cmd/accessed.go` | Surfaces the `access_log` (which memory nodes the agent has seen). |
-| `cmd/mcp.go` | MCP server entry point. |
+| `cmd/mcp/` | MCP server entry point. |
+| `cmd/internal/cmdutil/` | Shared helpers for cmd subpackages (not part of public CLI surface). |
 | `internal/db/` | Database layer. `store.go` defines the `Store` interface; `db.go` is SQLite, `postgres.go` is PostgreSQL. Read `db.go` first for schema. |
 | `internal/db/access_log.go` | Per-agent access logging. Inserts gated on `kind='memory'` so doc/content nodes are silently skipped. |
 | `internal/hook/` | `<ctx:*>` XML command parser and executor. Parser correctly ignores fenced/inline code blocks. |
@@ -30,6 +36,7 @@ This is `ctx`, a Go CLI that provides persistent memory for Claude Code agents. 
 | `internal/sync/` | Sync logic, state tracking, URL normalization. |
 | `internal/doc/` | `ctx doc` decomposition/recomposition. Strictly isolated from memory queries. |
 | `internal/agent/`, `internal/agenthelp/` | Agent identity (`$CTX_AGENT`) and `--agent-help` rendering. |
+| `pkg/db/` | Public re-export shim of `internal/db` types for external consumers embedding the store. |
 | `testutil/` | Shared test helpers (temp database creation). |
 
 ## Schema
@@ -54,10 +61,10 @@ Tables: `schema_version`, `nodes`, `edges`, `tags`, `views`, `pending`, `users`,
 - Table-driven tests with `testify` assertions.
 
 ### Adding a New CLI Command
-1. Create `cmd/<command>.go`.
+1. Create a new file in the appropriate `cmd/<group>/` subpackage (e.g. `cmd/node/`, `cmd/system/`), or create a new subpackage if it doesn't fit an existing group.
 2. Define a `cobra.Command` with `Use`, `Short`, and `RunE`.
-3. Register in `init()` with `rootCmd.AddCommand()`.
-4. Use `openDB()` for a database handle.
+3. Register the command via the subpackage's `Register(root)` function, which is called from `cmd/root.go`. Do **not** use `init()` — subpackages export a `Register` function instead.
+4. Use the shared DB helpers from `cmd/internal/cmdutil` for a database handle.
 5. Honor the `--format` flag (`text`, `json`, `markdown`) where output is shown.
 6. Add `--agent-help` content via the `agenthelp` package so the command is discoverable to agents.
 
