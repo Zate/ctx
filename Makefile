@@ -29,6 +29,9 @@ $(PLATFORMS):
 # Build and install (binary, database, skill, hooks, CLAUDE.md)
 install: build
 	./$(BINARY_NAME) install
+	@mkdir -p ~/.local/bin
+	cp $(BINARY_NAME) ~/.local/bin/$(BINARY_NAME)
+	@echo "Installed to ~/.local/bin/$(BINARY_NAME)"
 
 # ---------------------------------------------------------------------------
 # Tests
